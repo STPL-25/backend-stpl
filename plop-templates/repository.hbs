@@ -1,0 +1,43 @@
+import mssql from "mssql";
+import { initializeDatabase } from "Dbconnections/Dbconnections.js";
+let mssqlPool = await initializeDatabase();
+
+class {{pascalCase name}}Repository {
+  constructor() {
+    this.storedProcedureMap = {
+     
+    };
+
+    this.createProcedureMap = {
+      
+    };
+
+    this.updateProcedureMap = {
+    
+    };
+
+    this.deleteProcedureMap = {
+   
+    };
+  }
+
+  
+
+  async executeStoredProcedure(procedureName, parameters = {}) {
+    try {
+      const request = mssqlPool.request();
+      if (Object.keys(parameters).length > 0) {
+        request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify(parameters));
+      }
+      const result = await request.execute(procedureName);
+      // console.log(result);
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  
+}
+
+export default {{pascalCase name}}Repository;
