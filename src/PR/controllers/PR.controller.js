@@ -115,9 +115,121 @@ class PRController {
       const result = await PRService.submitDraftToDB(req.redisClient, ecno, draftId);
       if (!result) return res.status(404).json({ success: false, error: "Draft not found" });
 
-      // Broadcast PR creation event to company rooms if needed
-      const draft = result;
       res.json({ success: true, data: result, message: "Requisition submitted successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // ── DEPT-SCOPED SHARED DRAFT CONTROLLERS ─────────────────────────────────
+
+  static async saveDeptDraft(req, res) {
+    try {
+      const user = getAuthUser(req);
+      const ecno = user?.ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+      if (!req.body || Object.keys(req.body).length === 0)
+        return res.status(400).json({ success: false, error: "Draft data is required" });
+
+      const userName = user?.emp_name || user?.name || ecno;
+      const result = await PRService.saveDeptDraft(req.redisClient, ecno, userName, req.body);
+
+      const draft = await PRService.getDeptDraft(req.redisClient, result.scopeKey, result.draftId);
+      req.io.to(`pr:scope:${result.scopeKey}`).emit("pr:draft:new", draft);
+
+      res.json({ success: true, ...result, message: "Shared draft saved" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async getDeptDrafts(req, res) {
+    try {
+      const user = getAuthUser(req);
+      if (!user?.ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const { com_sno, div_sno, brn_sno } = req.query;
+      if (!com_sno || !div_sno || !brn_sno)
+        return res.status(400).json({ success: false, error: "com_sno, div_sno, brn_sno are required" });
+
+      const scopeKey = `${com_sno}:${div_sno}:${brn_sno}`;
+      const drafts = await PRService.getDeptDrafts(req.redisClient, scopeKey);
+      res.json({ success: true, data: drafts, count: drafts.length, scopeKey });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async updateDeptDraft(req, res) {
+    try {
+      const user = getAuthUser(req);
+      const ecno = user?.ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const { draftId } = req.params;
+      const { scopeKey } = req.body;
+      if (!scopeKey) return res.status(400).json({ success: false, error: "scopeKey is required" });
+
+      const userName = user?.emp_name || user?.name || ecno;
+      const updated = await PRService.updateDeptDraft(req.redisClient, ecno, userName, scopeKey, draftId, req.body);
+      if (!updated) return res.status(404).json({ success: false, error: "Draft not found" });
+
+      req.io.to(`pr:scope:${scopeKey}`).emit("pr:draft:updated", updated);
+      res.json({ success: true, draftId, updatedAt: updated.updatedAt, message: "Draft updated" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async deleteDeptDraft(req, res) {
+    try {
+      const user = getAuthUser(req);
+      if (!user?.ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const { draftId } = req.params;
+      const { scopeKey } = req.query;
+      if (!scopeKey) return res.status(400).json({ success: false, error: "scopeKey is required" });
+
+      const deleted = await PRService.deleteDeptDraft(req.redisClient, scopeKey, draftId);
+      if (!deleted) return res.status(404).json({ success: false, error: "Draft not found" });
+
+      req.io.to(`pr:scope:${scopeKey}`).emit("pr:draft:deleted", { draftId, scopeKey });
+      res.json({ success: true, message: "Shared draft deleted" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async submitDeptDraft(req, res) {
+    try {
+      const user = getAuthUser(req);
+      if (!user?.ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const { draftId } = req.params;
+      const { scopeKey } = req.body;
+      if (!scopeKey) return res.status(400).json({ success: false, error: "scopeKey is required" });
+
+      const result = await PRService.submitDeptDraftToDB(req.redisClient, scopeKey, draftId);
+      if (!result) return res.status(404).json({ success: false, error: "Draft not found" });
+
+      req.io.to(`pr:scope:${scopeKey}`).emit("pr:draft:submitted", { draftId, scopeKey });
+      res.json({ success: true, data: result, message: "Draft submitted successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async submitAllDeptDrafts(req, res) {
+    try {
+      const user = getAuthUser(req);
+      if (!user?.ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const { scopeKey } = req.body;
+      if (!scopeKey) return res.status(400).json({ success: false, error: "scopeKey is required" });
+
+      const results = await PRService.submitAllDeptDraftsToDB(req.redisClient, scopeKey);
+      req.io.to(`pr:scope:${scopeKey}`).emit("pr:draft:all_submitted", { scopeKey, results });
+      res.json({ success: true, data: results, message: `Submitted ${results.length} drafts` });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }

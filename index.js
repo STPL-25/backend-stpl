@@ -48,8 +48,8 @@ const redisClient = createClient({
 
 redisClient.on("error", (err) => console.error("Redis Client Error:", err));
 redisClient.on("connect", () => console.log("Redis Client Connected"));
-
 await redisClient.connect();
+console.log("Redis Client:", redisClient);
 
 // Pub/Sub clients for Socket.IO adapter
 const pubClient = redisClient.duplicate();
@@ -91,6 +91,15 @@ io.on("connection", (socket) => {
 
     socket.on("leave-company", (companyId) => {
         if (companyId && typeof companyId === "string") socket.leave(`company:${companyId}`);
+    });
+
+    // PR dept-scope rooms: pr:scope:{com_sno}:{div_sno}:{brn_sno}
+    socket.on("join-pr-scope", (scopeKey) => {
+        if (scopeKey && typeof scopeKey === "string") socket.join(`pr:scope:${scopeKey}`);
+    });
+
+    socket.on("leave-pr-scope", (scopeKey) => {
+        if (scopeKey && typeof scopeKey === "string") socket.leave(`pr:scope:${scopeKey}`);
     });
 
     socket.on("disconnect", () => {});

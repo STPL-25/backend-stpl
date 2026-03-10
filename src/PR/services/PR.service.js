@@ -36,6 +36,36 @@ class PRService {
   static async submitDraftToDB(redisClient, ecno, draftId) {
     return this.PRRepository.submitDraftToDB(redisClient, ecno, draftId);
   }
+
+  // ── DEPT-SCOPED SHARED DRAFT OPERATIONS ──────────────────────────────────
+
+  static async saveDeptDraft(redisClient, ecno, userName, draftData) {
+    return this.PRRepository.saveDeptDraft(redisClient, ecno, userName, draftData);
+  }
+
+  static async getDeptDrafts(redisClient, scopeKey) {
+    return this.PRRepository.getDeptDrafts(redisClient, scopeKey);
+  }
+
+  static async getDeptDraft(redisClient, scopeKey, draftId) {
+    return this.PRRepository.getDeptDraft(redisClient, scopeKey, draftId);
+  }
+
+  static async updateDeptDraft(redisClient, ecno, userName, scopeKey, draftId, draftData) {
+    return this.PRRepository.updateDeptDraft(redisClient, ecno, userName, scopeKey, draftId, draftData);
+  }
+
+  static async deleteDeptDraft(redisClient, scopeKey, draftId) {
+    return this.PRRepository.deleteDeptDraft(redisClient, scopeKey, draftId);
+  }
+
+  static async submitDeptDraftToDB(redisClient, scopeKey, draftId) {
+    return this.PRRepository.submitDeptDraftToDB(redisClient, scopeKey, draftId);
+  }
+
+  static async submitAllDeptDraftsToDB(redisClient, scopeKey) {
+    return this.PRRepository.submitAllDeptDraftsToDB(redisClient, scopeKey);
+  }
 }
 
 export default PRService;
