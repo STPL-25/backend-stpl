@@ -8,8 +8,18 @@ class SignUpControllers {
         try {
             const userData = req.body;
 
-            const result = await SignUpService.createUser('sign_up',userData);
-             res.status(201).json({
+            const result = await SignUpService.createUser('sign_up', userData);
+
+            // Broadcast to all connected admins so the user-list refreshes in real-time
+            if (req.io) {
+                req.io.emit("user:new", {
+                    ecno:  userData.ecno  ?? null,
+                    ename: userData.ename ?? null,
+                    dept:  userData.dept  ?? null,
+                });
+            }
+
+            res.status(201).json({
                 success: true,
                 message: "User created successfully",
                 data: result

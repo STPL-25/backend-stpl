@@ -53,6 +53,8 @@ class CommonMasterControllers {
         req.body
       );
 
+      req.io?.emit("master:updated", { masterField, action: "created" });
+
       res.status(201).json({
         success: true,
         data: data,
@@ -78,6 +80,8 @@ class CommonMasterControllers {
           error: "Master data not found",
         });
       }
+
+      req.io?.emit("master:updated", { masterField, action: "updated" });
 
       res.json({
         success: true,
@@ -106,6 +110,8 @@ class CommonMasterControllers {
           error: "Master data not found",
         });
       }
+
+      req.io?.emit("master:updated", { masterField, action: "deleted" });
 
       res.json({
         success: true,

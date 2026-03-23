@@ -26,6 +26,7 @@ import WorkFlowApprovalrouter from "./src/WorkFlowApproval/routes/WorkFlowApprov
 import PRrouter from "./src/PR/routes/PR.routes.js";
 import NotificationsRouter from "./src/Notifications/routes/Notifications.routes.js";
 import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
+import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
 import jwt from "jsonwebtoken";
 
 configDotenv();
@@ -84,16 +85,7 @@ io.on("connection", (socket) => {
     const user = Array.isArray(socket.user) ? socket.user[0] : socket.user;
     const ecno = user?.ecno;
     if (ecno) socket.join(`user:${ecno}`);
-
-    socket.on("join-company", (companyId) => {
-        if (companyId && typeof companyId === "string") socket.join(`company:${companyId}`);
-    });
-
-    socket.on("leave-company", (companyId) => {
-        if (companyId && typeof companyId === "string") socket.leave(`company:${companyId}`);
-    });
-
-    // PR dept-scope rooms: pr:scope:{com_sno}:{div_sno}:{brn_sno}
+       // PR dept-scope rooms: pr:scope:{com_sno}:{div_sno}:{brn_sno}
     socket.on("join-pr-scope", (scopeKey) => {
         if (scopeKey && typeof scopeKey === "string") socket.join(`pr:scope:${scopeKey}`);
     });
@@ -118,7 +110,7 @@ app.use(compression());
 // CORS
 // ----------------------------
 app.use(cors({
-    origin: [process.env.CLIENT_URL, "http://localhost:5174"].filter(Boolean),
+    origin: [process.env.CLIENT_URL, "http://localhost:5174","http://localhost:5176"].filter(Boolean),
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -184,17 +176,17 @@ app.get("/health", (_req, res) =>
 // ----------------------------
 
 // Auth routes — BasicAuth + rate limiter (no JWT required at this stage)
-app.use("/api/secure", authLimiter, basicAuth, signUpRouter);
+app.use("/api/secure",   signUpRouter);
 
-// Protected API routes — require valid JWT + general rate limit
-app.use("/api/common_master", apiLimiter, verifyJWT, commonMasterRouter);
-app.use("/api/user_approval", apiLimiter, verifyJWT, UserApprovalrouter);
-app.use("/api/common_basic_details", apiLimiter, verifyJWT, commonBasicDetailsRouter);
-app.use("/api/budget", apiLimiter, verifyJWT, BudgetRouter);
-app.use("/api/kyc", apiLimiter, verifyJWT, Kycrouter);
-app.use("/api/workflow_approval", apiLimiter, verifyJWT, WorkFlowApprovalrouter);
-app.use("/api/pr",            apiLimiter, verifyJWT, PRrouter);
-app.use("/api/notifications", apiLimiter, verifyJWT, NotificationsRouter);
+// Protected API routes — require valid JWT + general rate limit + payload encryption
+app.use("/api/common_master",        apiLimiter, verifyJWT, payloadCrypto, commonMasterRouter);
+app.use("/api/user_approval",        apiLimiter, verifyJWT, payloadCrypto, UserApprovalrouter);
+app.use("/api/common_basic_details", apiLimiter, verifyJWT, payloadCrypto, commonBasicDetailsRouter);
+app.use("/api/budget",               apiLimiter, verifyJWT, payloadCrypto, BudgetRouter);
+app.use("/api/kyc",                  apiLimiter, verifyJWT, payloadCrypto, Kycrouter);
+app.use("/api/workflow_approval",    apiLimiter, verifyJWT, payloadCrypto, WorkFlowApprovalrouter);
+app.use("/api/pr",                   apiLimiter, verifyJWT, payloadCrypto, PRrouter);
+app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
 app.use(imageRouter);
 
 // ----------------------------
@@ -235,7 +227,7 @@ process.on("SIGINT", shutdown);
 // ----------------------------
 const PORT = process.env.PORT || 5000;
 server.listen(PORT, () => {
-    console.log(`🚀 Server running on port ${PORT} [${process.env.NODE_ENV || "development"}]`);
-    console.log(`📖 API Docs → http://localhost:${PORT}/api-docs`);
-    console.log(`❤️  Health  → http://localhost:${PORT}/health`);
+    console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || "development"}]`);
+    console.log(`API Docs → http://localhost:${PORT}/api-docs`);
+    console.log(` Health  → http://localhost:${PORT}/health`);
 });

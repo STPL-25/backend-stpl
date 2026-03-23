@@ -104,11 +104,22 @@ class UserApprovalController {
       const permissionData = req.body;
       await UserApprovalService.saveUserPermissions(permissionData);
 
-      // Real-time: emit permission update to the affected user
       const targetEcno = permissionData.user_ecno || permissionData.ecno;
-      if (targetEcno && req.io) {
-        req.io.to(`user:${targetEcno}`).emit("permissions:updated", {
-          message: "Your permissions have been updated by an administrator",
+      const targetUserId = permissionData.user_id;
+
+      if (req.io) {
+        // 1. Notify the affected user — their sidebar refreshes immediately
+        if (targetEcno) {
+          req.io.to(`user:${targetEcno}`).emit("permissions:updated", {
+            message: "Your permissions have been updated by an administrator",
+            timestamp: new Date().toISOString(),
+          });
+        }
+
+        // 2. Broadcast to ALL admins — so any open approval page auto-refreshes
+        req.io.emit("admin:permissions:updated", {
+          user_id:   targetUserId ?? null,
+          user_ecno: targetEcno  ?? null,
           timestamp: new Date().toISOString(),
         });
       }
