@@ -18,7 +18,7 @@ configDotenv();
 // Derive the API payload key once at startup (synchronous — no per-request cost)
 const API_PAYLOAD_KEY = crypto.pbkdf2Sync(
   process.env.CRYPTO_SECRET,
-  'api-payload-salt',
+  process.env.CRYPTO_SALT,
   1000,
   32,
   'sha256'

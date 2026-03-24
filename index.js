@@ -68,16 +68,21 @@ const io = new Server(server, {
     adapter: createAdapter(pubClient, subClient),
 });
 
-// Socket.IO JWT authentication — rejects unauthenticated connections
+// Socket.IO: load the express session from the cookie so socket.request.session.jwt is available
+io.use((socket, next) => {
+    sessionMiddleware(socket.request, {}, next);
+});
+
+// Socket.IO session authentication — reads JWT from server-side session (HttpOnly cookie)
 io.use((socket, next) => {
     try {
-        const token = socket.handshake.auth?.token;
-        if (!token) return next(new Error("Authentication required"));
-        const payload = jwt.verify(token, process.env.JWT_SECRET, { algorithms: ["HS256"] });
+        const jwtToken = socket.request.session?.jwt;
+        if (!jwtToken) return next(new Error("Authentication required"));
+        const payload = jwt.verify(jwtToken, process.env.JWT_SECRET, { algorithms: ["HS256"] });
         socket.user = payload.user ?? payload;
         next();
     } catch {
-        next(new Error("Invalid or expired token"));
+        next(new Error("Invalid or expired session"));
     }
 });
 
@@ -123,7 +128,7 @@ app.use(express.urlencoded({ extended: true, limit: "5mb" }));
 // SESSION WITH REDIS STORE
 // ----------------------------
 app.use(cookieParser());
-app.use(session({
+const sessionMiddleware = session({
     store: new RedisStore({
         client: redisClient,
         prefix: "sess:",
@@ -139,7 +144,8 @@ app.use(session({
         sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
         maxAge: 1000 * 60 * 60 * 24,
     },
-}));
+});
+app.use(sessionMiddleware);
 
 // Make io and redisClient available in all route handlers
 app.use((req, _res, next) => {
@@ -176,7 +182,7 @@ app.get("/health", (_req, res) =>
 // ----------------------------
 
 // Auth routes — BasicAuth + rate limiter (no JWT required at this stage)
-app.use("/api/secure",   signUpRouter);
+app.use("/api/secure",  payloadCrypto, signUpRouter);
 
 // Protected API routes — require valid JWT + general rate limit + payload encryption
 app.use("/api/common_master",        apiLimiter, verifyJWT, payloadCrypto, commonMasterRouter);
