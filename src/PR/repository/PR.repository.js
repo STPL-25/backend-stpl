@@ -1,6 +1,7 @@
 import mssql from "mssql";
 import { initializeDatabase } from "../../Dbconnections/Dbconnections.js";
 import { randomUUID } from "node:crypto";
+import { get } from "node:http";
 
 let mssqlPool = await initializeDatabase();
 
@@ -9,7 +10,8 @@ const DRAFT_TTL_SECONDS = 7 * 24 * 60 * 60; // 7 days
 class PRRepository {
   constructor() {
     this.storedProcedureMap = {
-      getPrRecords: "sp_get_pr_details",
+      // getPrRecords: "sp_get_pr_details",
+      getPrRecords: "sp_get_pr_details_for_approval",
     };
 
     this.createProcedureMap = {
@@ -31,11 +33,47 @@ class PRRepository {
   }
 
   async createPrRecords(prData) {
-    return this.executeStoredProcedure(this.createProcedureMap["createPrRecords"], prData);
+    try {
+      console.log(prData)
+      const request = mssqlPool.request();
+      request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify(prData));
+      request.output("pr_no", mssql.VarChar(20));
+      const result = await request.execute(this.createProcedureMap["createPrRecords"]);
+      return {
+        recordset: result.recordset,
+        pr_no: result.output.pr_no,
+      };
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
   }
 
-  async getPrRecords() {
-    return this.executeStoredProcedure(this.storedProcedureMap["getPrRecords"]);
+  async getPrRecords(ecno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("Ecno", mssql.VarChar(50), ecno);
+      const result = await request.execute(this.storedProcedureMap["getPrRecords"]);
+      return result.recordset;
+    } catch (error) {
+      console.log(error)
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async approvePr(approvalData) {
+    try {
+
+      console.log(approvalData)
+      const request = mssqlPool.request();
+      request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify(approvalData));
+      const result = await request.execute("sp_approve_pr_datas");
+      console.log("Approval result:", result);
+      return result.recordset;
+    } catch (error) {
+            console.log(error)
+
+      throw new Error(`Database error: ${error.message}`);
+    }
   }
 
   // ── DRAFT OPERATIONS (Redis) ──────────────────────────────────────────────
@@ -216,7 +254,9 @@ class PRRepository {
   async submitDeptDraftToDB(redisClient, scopeKey, draftId) {
     const draft = await this.getDeptDraft(redisClient, scopeKey, draftId);
     if (!draft) return null;
+    console.log("Submitting dept draft to DB:", { scopeKey, draftId, draft });
     const result = await this.createPrRecords(draft);
+    console.log("DB submission result:", result);
     await this.deleteDeptDraft(redisClient, scopeKey, draftId);
     return result;
   }

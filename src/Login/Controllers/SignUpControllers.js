@@ -43,6 +43,8 @@ class SignUpControllers {
             // The client only receives an HttpOnly session cookie — the JWT is never exposed.
             const jwtToken = createJWTToken(result);
             req.session.jwt = jwtToken;
+            req.session.createdAt = Date.now();    // used for session ID rotation (1 hr)
+            req.session.lastActivity = Date.now(); // used for inactivity auto-logout
             await new Promise((resolve, reject) => {
                 req.session.save((err) => (err ? reject(err) : resolve()));
             });

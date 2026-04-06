@@ -363,6 +363,16 @@ class CommonMasterServices {
             throw new Error(`Database error: ${error.message}`);
         }
     }
+        static async getSignUpEmployee(masterField = {}) {
+        try {
+            const request = mssqlPool.request();
+            const result = await request.execute('sp_nt_GetSignUpEmployes');
+            return result.recordset;
+        } catch (error) {
+            console.error('Database Error:', error);
+            throw new Error(`Database error: ${error.message}`);
+        }
+    }
 }
 
 export default CommonMasterServices;

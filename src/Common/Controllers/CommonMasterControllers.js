@@ -20,6 +20,16 @@ class CommonMasterControllers {
             res.status(500).json({ success: false, error: error.message });
         }
     }
+    static async getSignUpEmployee(req, res) {
+        try {
+            const masterField = req.body;
+            const data = await CommonMasterServices.getSignUpEmployee(masterField);
+            res.json({ success: true, data });
+        } catch (error) {
+            res.status(500).json({ success: false, error: error.message });
+        }
+
+    }
     
 
          

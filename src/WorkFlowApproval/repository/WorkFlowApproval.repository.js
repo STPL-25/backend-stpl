@@ -4,26 +4,6 @@ import { initializeDatabase } from "../../Dbconnections/Dbconnections.js";
 let mssqlPool = await initializeDatabase();
 
 class WorkFlowApprovalRepository {
-  async #executeStoredProcedure(procedureName, parameters = {}) {
-    try {
-      const request = mssqlPool.request();
-
-      if (Object.keys(parameters).length > 0) {
-        request.input("workflow_json", mssql.NVarChar(mssql.MAX), JSON.stringify(parameters));
-        request.input("created_by", mssql.VarChar(20), parameters.created_by || "SYSTEM");
-      }
-
-      request.output("workflow_id", mssql.Int);
-      request.output("success", mssql.Bit);
-      request.output("message", mssql.NVarChar(500));
-
-      const result = await request.execute(procedureName);
-      return result.recordset;
-    } catch (error) {
-      throw new Error(`Database error: ${error.message}`);
-    }
-  }
-
   async #executeQuery(procedureName, parameters = {}) {
     try {
       const request = mssqlPool.request();
@@ -33,29 +13,74 @@ class WorkFlowApprovalRepository {
       const result = await request.execute(procedureName);
       return result.recordset;
     } catch (error) {
-      throw new Error(`Database error: ${error.message}`);
+      console.error(`Error executing stored procedure ${procedureName}:`, error);
+      // Capture full SQL error details (mssql wraps the original error)
+      const detail =
+        error?.originalError?.message ||
+        error?.message ||
+        error?.toString() ||
+        "Unknown DB error";
+      throw new Error(`Database error [${procedureName}]: ${detail}`);
     }
   }
 
-  createWorkFlowApproval(data) {
-    return this.#executeStoredProcedure("sp_SaveWorkflowMaster", data);
+  // approval_workflow_master
+  async saveFullWorkflow(data) {
+    return this.#executeQuery("sp_nt_SaveFullWorkflow", data);
   }
 
   async getWorkflows() {
     try {
-      return await this.#executeQuery("sp_GetWorkflowMasters");
+      return await this.#executeQuery("sp_nt_GetWorkflowMasters");
     } catch {
-      // SP may not exist yet — return empty
       return [];
     }
   }
 
   async getWorkflowByEntity(entityType) {
     try {
-      return await this.#executeQuery("sp_GetWorkflowByEntity", { entity_type: entityType });
+      return await this.#executeQuery("sp_nt_GetWorkflowByEntity", { entity_type: entityType });
     } catch {
       return [];
     }
+  }
+
+  async updateWorkflow(data) {
+    return this.#executeQuery("sp_nt_UpdateWorkflowMaster", data);
+  }
+
+  // workflow_types
+  async saveWorkflowType(data) {
+    return this.#executeQuery("sp_nt_SaveWorkflowType", data);
+  }
+
+  async getWorkflowTypes(workflowId) {
+    try {
+      return await this.#executeQuery("sp_nt_GetWorkflowTypes", { workflow_id: workflowId });
+    } catch {
+      return [];
+    }
+  }
+
+  async updateWorkflowType(data) {
+    return this.#executeQuery("sp_nt_UpdateWorkflowType", data);
+  }
+
+  // workflow_stage
+  async saveWorkflowStage(data) {
+    return this.#executeQuery("sp_nt_SaveWorkflowStage", data);
+  }
+
+  async getWorkflowStages(workflowTypesId) {
+    try {
+      return await this.#executeQuery("sp_nt_GetWorkflowStages", { workflow_types_id: workflowTypesId });
+    } catch {
+      return [];
+    }
+  }
+
+  async updateWorkflowStage(data) {
+    return this.#executeQuery("sp_nt_UpdateWorkflowStage", data);
   }
 }
 

@@ -7,8 +7,12 @@ class PRService {
     return this.PRRepository.createPrRecords(prData);
   }
 
-  static async getPrRecords() {
-    return this.PRRepository.getPrRecords();
+  static async getPrRecords(ecno) {
+    return this.PRRepository.getPrRecords(ecno);
+  }
+
+  static async approvePr(approvalData) {
+    return this.PRRepository.approvePr(approvalData);
   }
 
   // ── DRAFT OPERATIONS ─────────────────────────────────────────────────────

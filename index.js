@@ -24,9 +24,11 @@ import Kycrouter from "./src/Kyc/routes/Kyc.routes.js";
 import imageRouter from "./src/Utils/ImagesUpload/imageRoute.js";
 import WorkFlowApprovalrouter from "./src/WorkFlowApproval/routes/WorkFlowApproval.routes.js";
 import PRrouter from "./src/PR/routes/PR.routes.js";
+import StorePOrouter from "./src/StorePO/routes/StorePO.routes.js";
 import NotificationsRouter from "./src/Notifications/routes/Notifications.routes.js";
 import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
+import cryptoDebugRouter from "./src/Utils/CryptoDebug/cryptoDebugRoutes.js";
 import jwt from "jsonwebtoken";
 
 configDotenv();
@@ -99,6 +101,14 @@ io.on("connection", (socket) => {
         if (scopeKey && typeof scopeKey === "string") socket.leave(`pr:scope:${scopeKey}`);
     });
 
+    socket.on("join-pr-approval", () => {
+        socket.join("pr:approval");
+    });
+
+    socket.on("leave-pr-approval", () => {
+        socket.leave("pr:approval");
+    });
+
     socket.on("disconnect", () => {});
 });
 
@@ -132,17 +142,18 @@ const sessionMiddleware = session({
     store: new RedisStore({
         client: redisClient,
         prefix: "sess:",
-        ttl: 86400,
+        ttl: 7200, // 2 hours max in Redis (inactivity timeout is 30 min server-side)
     }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
+    rolling: true, // resets cookie maxAge on every response (keeps session alive while active)
     name: "sessionId",
     cookie: {
         httpOnly: true,
         secure: process.env.NODE_ENV === "production",
         sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-        maxAge: 1000 * 60 * 60 * 24,
+        maxAge: 1000 * 60 * 60 * 2, // 2 hours cookie lifetime (server enforces 30-min inactivity)
     },
 });
 app.use(sessionMiddleware);
@@ -181,6 +192,9 @@ app.get("/health", (_req, res) =>
 // ROUTES
 // ----------------------------
 
+// Crypto debug routes — DEV/TESTING only (blocked in production by the router itself)
+app.use("/api/debug", cryptoDebugRouter);
+
 // Auth routes — BasicAuth + rate limiter (no JWT required at this stage)
 app.use("/api/secure",  payloadCrypto, signUpRouter);
 
@@ -192,6 +206,7 @@ app.use("/api/budget",               apiLimiter, verifyJWT, payloadCrypto, Budge
 app.use("/api/kyc",                  apiLimiter, verifyJWT, payloadCrypto, Kycrouter);
 app.use("/api/workflow_approval",    apiLimiter, verifyJWT, payloadCrypto, WorkFlowApprovalrouter);
 app.use("/api/pr",                   apiLimiter, verifyJWT, payloadCrypto, PRrouter);
+app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
 app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
 app.use(imageRouter);
 

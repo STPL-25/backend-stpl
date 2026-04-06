@@ -48,6 +48,7 @@ class CommonMasterControllers {
   static async createMasterData(req, res) {
     try {
       const { masterField } = req.params;
+      console.log(req.body,masterField)
       const data = await CommonMasterServices.createCommonMaster(
         masterField,
         req.body
@@ -61,6 +62,7 @@ class CommonMasterControllers {
         message: `${masterField} created successfully`,
       });
     } catch (error) {
+      console.log(error)
       res.status(500).json({ success: false, error: error.message });
     }
   }

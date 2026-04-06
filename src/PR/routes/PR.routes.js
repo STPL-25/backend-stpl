@@ -6,6 +6,7 @@ const PRrouter = express.Router();
 // Existing routes
 PRrouter.post("/createPrRecords", PRController.createPrRecords);
 PRrouter.get("/getPrRecords", PRController.getPrRecords);
+PRrouter.post("/approvePr", PRController.approvePr);
 
 // Draft routes (Redis-backed, per-user)
 PRrouter.post("/saveDraft", PRController.saveDraft);

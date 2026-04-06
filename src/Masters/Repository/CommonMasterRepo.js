@@ -22,6 +22,7 @@ class CommonMasterRepo {
             'SubCategoryMaster': 'sp_nt_GetSubCategoryRecords',
             'ProductCategoryMaster': "sp_product_catagory",
             'ProductSubCategoryMaster': "sp_product_sub_catagory",
+            "WorkflowMaster": "sp_nt_GetWorkflowMaster"
         };
 
         this.createProcedureMap = {
@@ -37,6 +38,7 @@ class CommonMasterRepo {
             'ScreenMaster': 'sp_nt_CreateScreenRecords',
             'ScreenPermission': 'sp_nt_CreatePermissionRecords',
             'ProductMaster': 'sp_nt_CreateProductRecord',
+            "WorkflowMaster": "sp_nt_CreateWorkflowMaster"
         };
 
         this.updateProcedureMap = {
@@ -148,10 +150,10 @@ class CommonMasterRepo {
         }
     }
 
-    async executeStoredProcedure(procedureName, parameters = {}) {
+    async executeStoredProcedure(procedureName, parameters) {
         try {
             const request = mssqlPool.request();
-            if (Object.keys(parameters).length > 0) {
+            if (parameters !== undefined) {
                 request.input('jsonInput', mssql.NVarChar(mssql.MAX), JSON.stringify(parameters));
             }
             const result = await request.execute(procedureName);
