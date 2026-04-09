@@ -25,6 +25,7 @@ import imageRouter from "./src/Utils/ImagesUpload/imageRoute.js";
 import WorkFlowApprovalrouter from "./src/WorkFlowApproval/routes/WorkFlowApproval.routes.js";
 import PRrouter from "./src/PR/routes/PR.routes.js";
 import StorePOrouter from "./src/StorePO/routes/StorePO.routes.js";
+import PurchaseTeamRouter from "./src/PurchaseTeam/routes/PurchaseTeam.routes.js";
 import NotificationsRouter from "./src/Notifications/routes/Notifications.routes.js";
 import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
@@ -207,6 +208,7 @@ app.use("/api/kyc",                  apiLimiter, verifyJWT, payloadCrypto, Kycro
 app.use("/api/workflow_approval",    apiLimiter, verifyJWT, payloadCrypto, WorkFlowApprovalrouter);
 app.use("/api/pr",                   apiLimiter, verifyJWT, payloadCrypto, PRrouter);
 app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
+app.use("/api/purchase_team",        apiLimiter, verifyJWT, payloadCrypto, PurchaseTeamRouter);
 app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
 app.use(imageRouter);
 

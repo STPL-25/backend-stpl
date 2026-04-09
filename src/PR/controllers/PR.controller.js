@@ -32,9 +32,9 @@ class PRController {
     try {
       const user = getAuthUser(req);
 
-      console.log(req.body)
-      const { pr_no, ecno, comments,approval_stages } = req.body;
-      console.log(pr_no, ecno, comments,approval_stages)
+      const { pr_no, ecno, comments,approval_stages,action } = req.body;
+
+      console.log("action:", action);
 
             if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
 
@@ -48,11 +48,11 @@ class PRController {
       //   return res.status(400).json({ success: false, error: "comments are required when rejecting" });
       // }
 
-      const data = await PRService.approvePr({ pr_no,approved_by: ecno, comments: comments || "",approval_stages  });
+      const data = await PRService.approvePr({ pr_no,approved_by: ecno, comments: comments || "",approval_stages,action  });
 
-      req.io.to("pr:approval").emit("pr:approval:updated", { pr_no, approved_by: ecno });
+      // req.io.emit("pr:approval:updated", { pr_no, action, approved_by: ecno });
 
-      res.json({ success: true, data, message:  `successfully` });
+      res.json({ success: true, data, message:  `successfully`});
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }

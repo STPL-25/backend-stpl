@@ -62,8 +62,7 @@ class PRRepository {
 
   async approvePr(approvalData) {
     try {
-
-      console.log(approvalData)
+ 
       const request = mssqlPool.request();
       request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify(approvalData));
       const result = await request.execute("sp_approve_pr_datas");
