@@ -26,6 +26,7 @@ import WorkFlowApprovalrouter from "./src/WorkFlowApproval/routes/WorkFlowApprov
 import PRrouter from "./src/PR/routes/PR.routes.js";
 import StorePOrouter from "./src/StorePO/routes/StorePO.routes.js";
 import PurchaseTeamRouter from "./src/PurchaseTeam/routes/PurchaseTeam.routes.js";
+import GRNRouter from "./src/GRN/routes/GRN.routes.js";
 import NotificationsRouter from "./src/Notifications/routes/Notifications.routes.js";
 import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
@@ -209,6 +210,7 @@ app.use("/api/workflow_approval",    apiLimiter, verifyJWT, payloadCrypto, WorkF
 app.use("/api/pr",                   apiLimiter, verifyJWT, payloadCrypto, PRrouter);
 app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
 app.use("/api/purchase_team",        apiLimiter, verifyJWT, payloadCrypto, PurchaseTeamRouter);
+app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
 app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
 app.use(imageRouter);
 
