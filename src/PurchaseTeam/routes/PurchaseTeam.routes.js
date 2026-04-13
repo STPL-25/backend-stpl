@@ -12,7 +12,7 @@ PurchaseTeamRouter.get("/getApprovedVendors", PurchaseTeamController.getApproved
 // Supplier quotation
 PurchaseTeamRouter.post("/createSupplierQuotation", PurchaseTeamController.createSupplierQuotation);
 PurchaseTeamRouter.get("/getSupplierQuotations/:prBasicSno", PurchaseTeamController.getSupplierQuotations);
-PurchaseTeamRouter.post("/selectQuotation/:sqBasicSno", PurchaseTeamController.selectQuotation);
+PurchaseTeamRouter.post("/selectQuotation", PurchaseTeamController.selectQuotation);
 
 // Create PO from selected quotation
 PurchaseTeamRouter.post("/createPOFromQuotation", PurchaseTeamController.createPOFromQuotation);

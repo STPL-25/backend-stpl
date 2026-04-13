@@ -54,13 +54,13 @@ class PurchaseTeamRepository {
     }
   }
 
-  async selectQuotation(sqBasicSno, selectedBy) {
+  async selectQuotation(selectedQuotation, selectedBy) {
     try {
-      console.log(sqBasicSno, selectedBy);
+      console.log();
       const request = mssqlPool.request();
-      request.input("sq_basic_sno", mssql.Int, sqBasicSno);
-      request.input("selected_by", mssql.VarChar(20), selectedBy);
+      request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify(selectedQuotation));
       const result = await request.execute("sp_nt_SelectSupplierQuotation");
+      console.log(result)
       return result.recordset;
     } catch (error) {
       console.log(error);

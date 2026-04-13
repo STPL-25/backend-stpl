@@ -63,8 +63,9 @@ class PurchaseTeamController {
       const ecno = user?.ecno;
       if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
 
-      const { sqBasicSno } = req.params;
-      const data = await PurchaseTeamService.selectQuotation(Number(sqBasicSno), ecno);
+      const { selectedQuotation } = req.body;
+      console.log(selectedQuotation)
+      const data = await PurchaseTeamService.selectQuotation(selectedQuotation, ecno);
       res.json({ success: true, data, message: "Quotation selected" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
