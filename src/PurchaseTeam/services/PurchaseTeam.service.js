@@ -31,6 +31,14 @@ class PurchaseTeamService {
     return this.repo.updateItemQuantity(updateData);
   }
 
+  static async savePOConfirmation(confirmationData) {
+    return this.repo.savePOConfirmation(confirmationData);
+  }
+
+  static async getPOConfirmation(prBasicSno) {
+    return this.repo.getPOConfirmation(prBasicSno);
+  }
+
   static async saveQuotationDraft(redisClient, ecno, draftData) {
     return this.repo.saveQuotationDraft(redisClient, ecno, draftData);
   }

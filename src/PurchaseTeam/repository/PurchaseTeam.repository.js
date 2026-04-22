@@ -78,6 +78,34 @@ class PurchaseTeamRepository {
     return this.executeStoredProcedure("sp_nt_UpdatePOItemQuantity", updateData);
   }
 
+  // ── PO CONFIRMATION (Step 1) ─────────────────────────────────────────────
+
+  async savePOConfirmation(confirmationData) {
+    return this.executeStoredProcedure("usp_Save_PO_Request", confirmationData);
+  }
+
+  async getPOConfirmation(prBasicSno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("pr_basic_sno", mssql.Int, prBasicSno);
+      const result = await request.execute("sp_nt_GetPOConfirmation");
+      if (!result.recordset || result.recordset.length === 0) return null;
+
+      const row = result.recordset[0];
+      let items = [];
+      if (row.confirmation_items) {
+        try {
+          items = typeof row.confirmation_items === "string"
+            ? JSON.parse(row.confirmation_items)
+            : row.confirmation_items;
+        } catch { /* ignore */ }
+      }
+      return { ...row, items };
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
   // ── DRAFT OPERATIONS (Redis) ────────────────────────────────────────────
 
   async saveQuotationDraft(redisClient, ecno, draftData) {

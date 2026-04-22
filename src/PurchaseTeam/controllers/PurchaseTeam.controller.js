@@ -12,7 +12,6 @@ class PurchaseTeamController {
       const data = await PurchaseTeamService.getApprovedPRs(req.query);
       res.json({ success: true, data });
     } catch (error) {
-      console.log(error)
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -23,7 +22,6 @@ class PurchaseTeamController {
       const data = await PurchaseTeamService.getApprovedVendors(req.query);
       res.json({ success: true, data });
     } catch (error) {
-      console.log(error)
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -64,7 +62,6 @@ class PurchaseTeamController {
       if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
 
       const { selectedQuotation } = req.body;
-      console.log(selectedQuotation)
       const data = await PurchaseTeamService.selectQuotation(selectedQuotation, ecno);
       res.json({ success: true, data, message: "Quotation selected" });
     } catch (error) {
@@ -101,6 +98,36 @@ class PurchaseTeamController {
         modified_by: ecno,
       });
       res.json({ success: true, data, message: "Item quantity updated" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // ── PO CONFIRMATION (Step 1) ─────────────────────────────────────────────
+  static async savePOConfirmation(req, res) {
+    try {
+      const user = getAuthUser(req);
+      const ecno = user?.ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const data = await PurchaseTeamService.savePOConfirmation({
+        ...req.body,
+        confirmed_by: ecno,
+      });
+
+      res.json({ success: true, data, message: "PO confirmation saved" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async getPOConfirmation(req, res) {
+    try {
+      const { prBasicSno } = req.params;
+      if (!prBasicSno) return res.status(400).json({ success: false, error: "pr_basic_sno required" });
+
+      const data = await PurchaseTeamService.getPOConfirmation(Number(prBasicSno));
+      res.json({ success: true, data });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }

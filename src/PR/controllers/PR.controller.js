@@ -9,11 +9,9 @@ function getAuthUser(req) {
 class PRController {
   static async createPrRecords(req, res) {
     try {
-      console.log(req.body)
       const data = await PRService.createPrRecords(req.body);
       res.json({ success: true, data });
     } catch (error) {
-      console.log(error)
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -32,21 +30,18 @@ class PRController {
     try {
       const user = getAuthUser(req);
 
-      const { pr_no, ecno, comments,approval_stages,action } = req.body;
+      const { pr_no, ecno, comments, approval_stages, action } = req.body;
 
-      console.log("action:", action);
-
-            if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
-
-      // if (!pr_no || !action) {
-      //   return res.status(400).json({ success: false, error: "pr_no and action are required" });
-      // }
-      // if (!["approve", "reject"].includes(action)) {
-      //   return res.status(400).json({ success: false, error: "action must be 'approve' or 'reject'" });
-      // }
-      // if (action === "reject" && !comments?.trim()) {
-      //   return res.status(400).json({ success: false, error: "comments are required when rejecting" });
-      // }
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+      if (!pr_no || !action) {
+        return res.status(400).json({ success: false, error: "pr_no and action are required" });
+      }
+      if (!["approve", "reject"].includes(action)) {
+        return res.status(400).json({ success: false, error: "action must be 'approve' or 'reject'" });
+      }
+      if (action === "reject" && !comments?.trim()) {
+        return res.status(400).json({ success: false, error: "comments are required when rejecting" });
+      }
 
       const data = await PRService.approvePr({ pr_no,approved_by: ecno, comments: comments || "",approval_stages,action  });
 
@@ -240,7 +235,6 @@ class PRController {
 
       const { draftId } = req.params;
       const { scopeKey } = req.body;
-      console.log(draftId)
       if (!scopeKey) return res.status(400).json({ success: false, error: "scopeKey is required" });
 
       const result = await PRService.submitDeptDraftToDB(req.redisClient, scopeKey, draftId);
@@ -249,7 +243,6 @@ class PRController {
       req.io.to(`pr:scope:${scopeKey}`).emit("pr:draft:submitted", { draftId, scopeKey });
       res.json({ success: true, data: result, message: "Draft submitted successfully" });
     } catch (error) {
-      console.log(error)
       res.status(500).json({ success: false, error: error.message });
     }
   }

@@ -4,12 +4,9 @@ class WorkFlowApprovalController {
   // POST /saveFullWorkflow — creates all 3 tables in one SP call
   static async saveFullWorkflow(req, res) {
     try {
-            console.log(req.body)
-
       const result = await WorkFlowApprovalService.saveFullWorkflow(req.body);
       res.status(201).json({ success: true, message: "Workflow saved successfully", data: result });
     } catch (error) {
-      console.log(error)
       res.status(500).json({ success: false, error: error.message });
     }
   }

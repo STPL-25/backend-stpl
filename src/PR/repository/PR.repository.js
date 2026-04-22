@@ -1,7 +1,6 @@
 import mssql from "mssql";
 import { initializeDatabase } from "../../Dbconnections/Dbconnections.js";
 import { randomUUID } from "node:crypto";
-import { get } from "node:http";
 
 let mssqlPool = await initializeDatabase();
 

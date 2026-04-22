@@ -8,10 +8,10 @@ import fs from "fs";
 const memoryStorage = multer.memoryStorage();
 const upload = multer({ storage: memoryStorage });
 const ftpConfig = {
-  host: "10.0.222.102",
-  user: "1148",
-  password: "$p@cek7m",
-  secure: false,
+  host:     process.env.FTP_HOST || "10.0.222.102",
+  user:     process.env.FTP_USER || "1148",
+  password: process.env.FTP_PASS || "$p@cek7m",
+  secure:   false,
 };
 
 
@@ -66,7 +66,6 @@ class FtpUploader {
         message: "File uploaded successfully",
       };
     } catch (err) {
-      console.error("Upload error:", err);
       return {
         success: false,
         message: `File upload failed: ${err.message}`,
@@ -130,8 +129,7 @@ class FtpUploader {
 
       const list = await client.list();
       return list.some((file) => file.name === filename);
-    } catch (err) {
-      console.error("FTP error:", err);
+    } catch {
       return false;
     } finally {
       client.close();
@@ -147,11 +145,9 @@ class FtpUploader {
   async uploadFileIfExists(file, subDirectory) {
   if (!file) return "";
 
-  // Extract the file extension
   const fileExtension = path.extname(file.originalname);
-  console.log(fileExtension)
-  // Generate a unique filename (10-character ID + original extension)
-  const uniqueFileName = `${file.originalname}${nanoid(10)}${fileExtension}`;
+  const baseName = path.basename(file.originalname, fileExtension);
+  const uniqueFileName = `${baseName}_${nanoid(10)}${fileExtension}`;
 
   // Upload using the unique filename
   const result = await this.uploadFile(file.buffer, uniqueFileName, subDirectory);

@@ -20,6 +20,10 @@ PurchaseTeamRouter.post("/createPOFromQuotation", PurchaseTeamController.createP
 // Update item quantity
 PurchaseTeamRouter.post("/updateItemQuantity", PurchaseTeamController.updateItemQuantity);
 
+// PO Confirmation (Step 1 — billing org, required date, item qty split)
+PurchaseTeamRouter.post("/savePOConfirmation", PurchaseTeamController.savePOConfirmation);
+PurchaseTeamRouter.get("/getPOConfirmation/:prBasicSno", PurchaseTeamController.getPOConfirmation);
+
 // Quotation drafts (Redis)
 PurchaseTeamRouter.post("/saveQuotationDraft", PurchaseTeamController.saveQuotationDraft);
 PurchaseTeamRouter.get("/getQuotationDrafts", PurchaseTeamController.getQuotationDrafts);
