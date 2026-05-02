@@ -33,7 +33,6 @@ class PRRepository {
 
   async createPrRecords(prData) {
     try {
-      console.log(prData)
       const request = mssqlPool.request();
       request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify(prData));
       request.output("pr_no", mssql.VarChar(20));

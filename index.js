@@ -111,6 +111,14 @@ io.on("connection", (socket) => {
         socket.leave("pr:approval");
     });
 
+    socket.on("join-kyc-approval", () => {
+        socket.join("kyc:approval");
+    });
+
+    socket.on("leave-kyc-approval", () => {
+        socket.leave("kyc:approval");
+    });
+
     socket.on("disconnect", () => {});
 });
 
@@ -133,8 +141,8 @@ app.use(cors({
     allowedHeaders: ["Content-Type", "Authorization"],
 }));
 
-app.use(express.json({ limit: "5mb" }));
-app.use(express.urlencoded({ extended: true, limit: "5mb" }));
+app.use(express.json({ limit: "50mb" }));
+app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // ----------------------------
 // SESSION WITH REDIS STORE
@@ -201,7 +209,7 @@ app.use("/api/debug", cryptoDebugRouter);
 app.use("/api/secure",  payloadCrypto, signUpRouter);
 
 // Protected API routes — require valid JWT + general rate limit + payload encryption
-app.use("/api/common_master",        apiLimiter, verifyJWT, payloadCrypto, commonMasterRouter);
+app.use("/api/common_master",         verifyJWT, payloadCrypto, commonMasterRouter);
 app.use("/api/user_approval",        apiLimiter, verifyJWT, payloadCrypto, UserApprovalrouter);
 app.use("/api/common_basic_details", apiLimiter, verifyJWT, payloadCrypto, commonBasicDetailsRouter);
 app.use("/api/budget",               apiLimiter, verifyJWT, payloadCrypto, BudgetRouter);

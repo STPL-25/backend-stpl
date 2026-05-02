@@ -114,6 +114,7 @@ class CommonMasterRepo {
             }
 
             const result = await this.executeStoredProcedure(storedProcedure, data);
+            console.log(result)
             return result;
         } catch (error) {
             throw new Error(`Error creating ${masterField}: ${error.message}`);

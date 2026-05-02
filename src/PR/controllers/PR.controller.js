@@ -1,4 +1,6 @@
 import PRService from "../services/PR.service.js";
+import { ftpUploader } from "../../Utils/ImagesUpload/ImgUpload.js";
+import { invalidateCacheByPattern } from "../../Middleware/redisCache.js";
 
 // Helper: extract authenticated user from JWT payload (array or object)
 function getAuthUser(req) {
@@ -9,9 +11,39 @@ function getAuthUser(req) {
 class PRController {
   static async createPrRecords(req, res) {
     try {
-      const data = await PRService.createPrRecords(req.body);
+      let payload;
+
+      // Multipart/form-data from direct submission (files sent separately)
+      if (typeof req.body.basicInfo === "string") {
+        const basicInfo = JSON.parse(req.body.basicInfo);
+        const items = JSON.parse(req.body.items || "[]");
+        // Upload each item's file to FTP and replace with URL
+        if (req.files && req.files.length > 0) {
+          for (const file of req.files) {
+            const match = file.fieldname.match(/^item_attachment_(\d+)$/);
+            if (match) {
+              const idx = parseInt(match[1], 10);
+              if (items[idx]) {
+                items[idx].item_attachment = await ftpUploader.uploadFileIfExists(
+                  file,
+                  "NON_TRADE_DATAS/PR_ITEMS"
+                );
+              }
+            }
+          }
+        }
+
+        payload = { basicInfo, items };
+      } else {
+        payload = req.body;
+      }
+
+      const data = await PRService.createPrRecords(payload);
+      await invalidateCacheByPattern(req.redisClient, "pr:list:*");
       res.json({ success: true, data });
     } catch (error) {
+
+      console.log(error)
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -44,6 +76,7 @@ class PRController {
       }
 
       const data = await PRService.approvePr({ pr_no,approved_by: ecno, comments: comments || "",approval_stages,action  });
+      await invalidateCacheByPattern(req.redisClient, "pr:list:*");
 
       // req.io.emit("pr:approval:updated", { pr_no, action, approved_by: ecno });
 
@@ -143,6 +176,7 @@ class PRController {
       const result = await PRService.submitDraftToDB(req.redisClient, ecno, draftId);
       if (!result) return res.status(404).json({ success: false, error: "Draft not found" });
 
+      await invalidateCacheByPattern(req.redisClient, "pr:list:*");
       res.json({ success: true, data: result, message: "Requisition submitted successfully" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -240,6 +274,7 @@ class PRController {
       const result = await PRService.submitDeptDraftToDB(req.redisClient, scopeKey, draftId);
       if (!result) return res.status(404).json({ success: false, error: "Draft not found" });
 
+      await invalidateCacheByPattern(req.redisClient, "pr:list:*");
       req.io.to(`pr:scope:${scopeKey}`).emit("pr:draft:submitted", { draftId, scopeKey });
       res.json({ success: true, data: result, message: "Draft submitted successfully" });
     } catch (error) {
@@ -256,6 +291,7 @@ class PRController {
       if (!scopeKey) return res.status(400).json({ success: false, error: "scopeKey is required" });
 
       const results = await PRService.submitAllDeptDraftsToDB(req.redisClient, scopeKey);
+      await invalidateCacheByPattern(req.redisClient, "pr:list:*");
       req.io.to(`pr:scope:${scopeKey}`).emit("pr:draft:all_submitted", { scopeKey, results });
       res.json({ success: true, data: results, message: `Submitted ${results.length} drafts` });
     } catch (error) {

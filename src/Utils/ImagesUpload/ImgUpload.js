@@ -50,7 +50,7 @@ class FtpUploader {
         try {
           await client.cd(subDirectory);
         } catch (err) {
-          await client.mkdir(subDirectory);
+          await client.send("MKD " + subDirectory);
           await client.cd(subDirectory);
         }
       }
@@ -151,7 +151,6 @@ class FtpUploader {
 
   // Upload using the unique filename
   const result = await this.uploadFile(file.buffer, uniqueFileName, subDirectory);
-
   return result.success
     ? `${process.env.SERVER_URL}/dwl/${subDirectory}/${uniqueFileName}`
     : "";

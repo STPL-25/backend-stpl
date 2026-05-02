@@ -77,6 +77,7 @@ class UserApprovalRepository {
     }
     async saveUserPermissions(permissionData) {
         try {
+            console.log(permissionData)
             const storedProcedure = this.createProcedureMap['saveUserPermissions'];
             if (!storedProcedure) {
                 throw new Error(`Invalid stored procedure`);
@@ -84,6 +85,7 @@ class UserApprovalRepository {
             const result = await this.#executeStoredProcedure(storedProcedure, permissionData);
             return result;
         } catch (error) {
+            console.log(error)
             throw new Error(`Error saving user permissions: ${error.message}`);
         }
     }
@@ -99,11 +101,13 @@ class UserApprovalRepository {
 
     // Fetch permissions by nt_sign_up_sno (used in PermissionManager for pre-population)
     async getUserPermissionsById(userId) {
+        console.log(userId)
       try {
           const storedProcedure = 'sp_nt_GetUserScreenPermissions';
-          const result = await this.#executeStoredProcedure(storedProcedure, { nt_sign_up_sno: userId });
+          const result = await this.#executeStoredProcedure(storedProcedure, { ecno: userId });
           return result;
       } catch (error) {
+        console.log(error)
           throw new Error(`Error fetching user permissions by id: ${error.message}`);
       }
     }

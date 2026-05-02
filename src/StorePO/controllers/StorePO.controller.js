@@ -1,4 +1,5 @@
 import StorePOService from "../services/StorePO.service.js";
+import { invalidateCache } from "../../Middleware/redisCache.js";
 
 function getAuthUser(req) {
   const user = Array.isArray(req.user) ? req.user[0] : req.user;
@@ -9,6 +10,7 @@ class StorePOController {
   static async createStorePO(req, res) {
     try {
       const data = await StorePOService.createStorePO(req.body);
+      await invalidateCache(req.redisClient, "storepo:list");
       res.json({ success: true, data });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -113,6 +115,7 @@ class StorePOController {
       const result = await StorePOService.submitPODraftToDB(req.redisClient, ecno, draftId);
       if (!result) return res.status(404).json({ success: false, error: "Draft not found" });
 
+      await invalidateCache(req.redisClient, "storepo:list");
       res.json({ success: true, data: result, message: "Store PO generated successfully" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

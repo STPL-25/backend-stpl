@@ -1,11 +1,13 @@
 import express from "express";
 import PRController from "../controllers/PR.controller.js";
+import { upload } from "../../Utils/ImagesUpload/ImgUpload.js";
+import { cacheMiddleware } from "../../Middleware/redisCache.js";
 
 const PRrouter = express.Router();
 
 // Existing routes
-PRrouter.post("/createPrRecords", PRController.createPrRecords);
-PRrouter.get("/getPrRecords", PRController.getPrRecords);
+PRrouter.post("/createPrRecords", upload.any(), PRController.createPrRecords);
+PRrouter.get("/getPrRecords", cacheMiddleware((req) => `pr:list:${req.query.ecno || "all"}`, 120), PRController.getPrRecords);
 PRrouter.post("/approvePr", PRController.approvePr);
 
 // Draft routes (Redis-backed, per-user)

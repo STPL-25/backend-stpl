@@ -4,6 +4,23 @@ import { initializeDatabase } from "../../Dbconnections/Dbconnections.js";
 let mssqlPool = await initializeDatabase();
 
 class WorkFlowApprovalRepository {
+  async #executeIntQuery(procedureName, paramName, value) {
+    try {
+      const request = mssqlPool.request();
+      request.input(paramName, mssql.Int, value);
+      const result = await request.execute(procedureName);
+      return result.recordset;
+    } catch (error) {
+      console.error(`Error executing stored procedure ${procedureName}:`, error);
+      const detail =
+        error?.originalError?.message ||
+        error?.message ||
+        error?.toString() ||
+        "Unknown DB error";
+      throw new Error(`Database error [${procedureName}]: ${detail}`);
+    }
+  }
+
   async #executeQuery(procedureName, parameters = {}) {
     try {
       const request = mssqlPool.request();
@@ -26,6 +43,7 @@ class WorkFlowApprovalRepository {
 
   // approval_workflow_master
   async saveFullWorkflow(data) {
+    console.log(data);
     return this.#executeQuery("sp_nt_SaveFullWorkflow", data);
   }
 
@@ -56,7 +74,7 @@ class WorkFlowApprovalRepository {
 
   async getWorkflowTypes(workflowId) {
     try {
-      return await this.#executeQuery("sp_nt_GetWorkflowTypes", { workflow_id: workflowId });
+      return await this.#executeIntQuery("sp_nt_GetWorkflowTypes", "workflow_id", workflowId);
     } catch {
       return [];
     }

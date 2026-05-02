@@ -65,6 +65,24 @@ function decryptJson(payload) {
 }
 
 /**
+ * Decrypt the `_ep` field that FormData uploads embed.
+ * Must be called inside route handlers AFTER multer has parsed the multipart body.
+ * Merges decrypted fields into req.body and removes `_ep`.
+ */
+export function decryptFormPayload(req) {
+  const raw = req.body?._ep;
+  if (!raw) return;
+  try {
+    const parsed = JSON.parse(raw);
+    const decrypted = decryptJson(parsed);
+    Object.assign(req.body, decrypted);
+    delete req.body._ep;
+  } catch {
+    throw new Error('Invalid encrypted form payload.');
+  }
+}
+
+/**
  * Express middleware:
  *  1. Decrypts the request body if it has the encrypted shape { d, iv }.
  *  2. Wraps res.json to encrypt all outgoing JSON responses.

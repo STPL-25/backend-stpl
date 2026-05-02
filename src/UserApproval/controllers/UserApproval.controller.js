@@ -1,4 +1,5 @@
 import UserApprovalService from "../services/UserApproval.service.js";
+import { invalidateCache, invalidateCacheByPattern } from "../../Middleware/redisCache.js";
 
 class UserApprovalController {
   static async getAllCompanyByHierarchy(req, res) {
@@ -106,6 +107,11 @@ class UserApprovalController {
 
       const targetEcno = permissionData.user_ecno || permissionData.ecno;
       const targetUserId = permissionData.user_id;
+
+      await invalidateCache(req.redisClient, "ua:permissions");
+      if (targetEcno) await invalidateCache(req.redisClient, `ua:user_screens:${targetEcno}`);
+      if (targetUserId) await invalidateCache(req.redisClient, `ua:user_perms:${targetUserId}`);
+      else await invalidateCacheByPattern(req.redisClient, "ua:user_perms:*");
 
       if (req.io) {
         // 1. Notify the affected user — their sidebar refreshes immediately

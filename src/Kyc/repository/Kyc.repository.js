@@ -7,6 +7,7 @@ class KYCRepo {
   constructor() {
     this.storedProcedures = {
       getAllKYC: 'sp_get_kyc_info',
+      getPendingApprovals: 'sp_get_kyc_approval',
       // getKYCById: 'sp_nt_GetKYCRecordById',
       // createKYC: 'sp_nt_CreateKYCRecord',
       createKYC: 'sp_InsertKYCData',
@@ -24,14 +25,36 @@ class KYCRepo {
   async getAllKYCRecords() {
     try {
       const request = mssqlPool.request();
-      
-     
       const result = await request.execute(this.storedProcedures.getAllKYC);
       return result.recordset;
     } catch (error) {
       throw new Error(`Database error: ${error.message}`);
     }
   }
+
+  async getPendingApprovals(ecno) {
+    try {
+      const request = mssqlPool.request();
+      request.input('Ecno', mssql.VarChar(50), ecno);
+
+      const result = await request.execute(this.storedProcedures.getPendingApprovals);
+      return result.recordset;
+    } catch (error) {
+      console.log(error)
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+  // async getKycApproval(ecno) {
+  //   try {
+  //     const request = mssqlPool.request();
+  //     request.input('Ecno', mssql.VarChar(50), ecno);
+  //     const result = await request.execute(this.storedProcedures.getKycApproval);
+  //     return result.recordset;
+  //   }
+  //     catch (error) {
+  //     throw new Error(`Database error: ${error.message}`);
+  //   }
+  // }
 
   async getKYCRecordById(id) {
     try {
@@ -148,9 +171,21 @@ class KYCRepo {
     try {
       const request = mssqlPool.request();
       request.input('jsonInput', mssql.NVarChar(mssql.MAX), JSON.stringify(filters));
-      
+
       const result = await request.execute(this.storedProcedures.getStatistics);
       return result.recordset[0];
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async approveKyc(approvalData) {
+    try {
+      console.log(approvalData)
+      const request = mssqlPool.request();
+      request.input('jsonInput', mssql.NVarChar(mssql.MAX), JSON.stringify(approvalData));
+      const result = await request.execute('sp_approve_kyc_datas');
+      return result.recordset;
     } catch (error) {
       throw new Error(`Database error: ${error.message}`);
     }

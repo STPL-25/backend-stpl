@@ -1,4 +1,5 @@
 import PurchaseTeamService from "../services/PurchaseTeam.service.js";
+import { invalidateCache, invalidateCacheByPattern } from "../../Middleware/redisCache.js";
 
 function getAuthUser(req) {
   const user = Array.isArray(req.user) ? req.user[0] : req.user;
@@ -37,6 +38,9 @@ class PurchaseTeamController {
         ...req.body,
         created_by: ecno,
       });
+      const prSno = req.body.pr_basic_sno;
+      if (prSno) await invalidateCache(req.redisClient, `pt:quotations:${prSno}`);
+      await invalidateCache(req.redisClient, "pt:approved_prs");
       res.json({ success: true, data, message: "Supplier quotation created" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -63,6 +67,9 @@ class PurchaseTeamController {
 
       const { selectedQuotation } = req.body;
       const data = await PurchaseTeamService.selectQuotation(selectedQuotation, ecno);
+      const prSno = selectedQuotation?.pr_basic_sno;
+      if (prSno) await invalidateCache(req.redisClient, `pt:quotations:${prSno}`);
+      await invalidateCache(req.redisClient, "pt:approved_prs");
       res.json({ success: true, data, message: "Quotation selected" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -80,6 +87,7 @@ class PurchaseTeamController {
         ...req.body,
         created_by: ecno,
       });
+      await invalidateCache(req.redisClient, "pt:approved_prs", "grn:pending_pos", "storepo:list");
       res.json({ success: true, data, message: "Purchase Order created" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -97,6 +105,7 @@ class PurchaseTeamController {
         ...req.body,
         modified_by: ecno,
       });
+      await invalidateCacheByPattern(req.redisClient, "pt:quotations:*");
       res.json({ success: true, data, message: "Item quantity updated" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -114,7 +123,8 @@ class PurchaseTeamController {
         ...req.body,
         confirmed_by: ecno,
       });
-
+      const prSno = req.body.pr_basic_sno;
+      if (prSno) await invalidateCache(req.redisClient, `pt:po_confirm:${prSno}`);
       res.json({ success: true, data, message: "PO confirmation saved" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

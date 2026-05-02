@@ -1,11 +1,12 @@
 import express from "express";
 import StorePOController from "../controllers/StorePO.controller.js";
+import { cacheMiddleware } from "../../Middleware/redisCache.js";
 
 const StorePOrouter = express.Router();
 
 // DB-persisted POs
 StorePOrouter.post("/createStorePO", StorePOController.createStorePO);
-StorePOrouter.get("/getStorePOs", StorePOController.getStorePOs);
+StorePOrouter.get("/getStorePOs", cacheMiddleware("storepo:list", 120), StorePOController.getStorePOs);
 
 // Draft operations (Redis-backed, per-user)
 StorePOrouter.post("/savePODraft", StorePOController.savePODraft);

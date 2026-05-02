@@ -1,4 +1,5 @@
 import GRNService from "../services/GRN.service.js";
+import { invalidateCache, invalidateCacheByPattern } from "../../Middleware/redisCache.js";
 
 function getAuthUser(req) {
   const user = Array.isArray(req.user) ? req.user[0] : req.user;
@@ -31,6 +32,8 @@ class GRNController {
     try {
       const user = getAuthUser(req);
       const data = await GRNService.createGRN({ ...req.body, created_by: user?.ecno });
+      await invalidateCache(req.redisClient, "grn:pending_pos", "grn:all");
+      await invalidateCacheByPattern(req.redisClient, "grn:by_po:*");
       res.json({ success: true, data });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -134,6 +137,8 @@ class GRNController {
       const result = await GRNService.submitGRNDraftToDB(req.redisClient, ecno, draftId);
       if (!result) return res.status(404).json({ success: false, error: "Draft not found" });
 
+      await invalidateCache(req.redisClient, "grn:pending_pos", "grn:all");
+      await invalidateCacheByPattern(req.redisClient, "grn:by_po:*");
       res.json({ success: true, data: result, message: "GRN submitted successfully" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

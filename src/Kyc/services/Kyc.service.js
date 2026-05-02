@@ -5,11 +5,20 @@ class KYCServices {
   static async createKYCRecord(data) {
     return this.kycRepository.createKYCRecord(data);
   }
-  static getAllKycRecord(){
+  static getAllKycRecord() {
     return this.kycRepository.getAllKYCRecords();
-
   }
-  
+  static getKycApproval(ecno) {
+    return this.kycRepository.getKycApproval(ecno);
+  }
+
+  static getPendingApprovals(ecno) {
+    return this.kycRepository.getPendingApprovals(ecno);
+  }
+
+  static approveKyc(data) {
+    return this.kycRepository.approveKyc(data);
+  }
 }
 
 export default KYCServices;

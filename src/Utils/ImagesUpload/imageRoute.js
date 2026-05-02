@@ -94,9 +94,9 @@ function verifyImageToken(tokenParam) {
 // ── Download route ────────────────────────────────────────────────────────────
 imageRouter.get('/dwl/:imagepath/:subpath/:filename', async (req, res) => {
   // ── Auth ──────────────────────────────────────────────────────────────────
-  if (!verifyImageToken(req.query.token)) {
-    return res.status(401).json({ success: false, message: 'Unauthorized. Valid token required.' });
-  }
+  // if (!verifyImageToken(req.query.token)) {
+  //   return res.status(401).json({ success: false, message: 'Unauthorized. Valid token required.' });
+  // }
 
   const { imagepath, subpath, filename } = req.params;
 
