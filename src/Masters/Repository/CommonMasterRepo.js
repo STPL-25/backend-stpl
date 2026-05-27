@@ -22,7 +22,9 @@ class CommonMasterRepo {
             'SubCategoryMaster': 'sp_nt_GetSubCategoryRecords',
             'ProductCategoryMaster': "sp_product_catagory",
             'ProductSubCategoryMaster': "sp_product_sub_catagory",
-            "WorkflowMaster": "sp_nt_GetWorkflowMaster"
+            "WorkflowMaster": "sp_nt_GetWorkflowMaster",
+            "SupplierCatagoryMaster": "usp_GetSupplierCategoryRecords",
+            "BusinessDetailsMatster": "sp_Get_Business_Details"
         };
 
         this.createProcedureMap = {

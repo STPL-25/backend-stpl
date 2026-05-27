@@ -63,7 +63,7 @@ class PurchaseTeamController {
     try {
       const user = getAuthUser(req);
       const ecno = user?.ecno;
-      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+      // if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
 
       const { selectedQuotation } = req.body;
       const data = await PurchaseTeamService.selectQuotation(selectedQuotation, ecno);
@@ -117,7 +117,7 @@ class PurchaseTeamController {
     try {
       const user = getAuthUser(req);
       const ecno = user?.ecno;
-      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+      // if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
 
       const data = await PurchaseTeamService.savePOConfirmation({
         ...req.body,

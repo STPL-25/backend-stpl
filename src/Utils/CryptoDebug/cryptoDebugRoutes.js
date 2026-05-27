@@ -11,6 +11,7 @@
 import express from "express";
 import crypto from "crypto";
 import { configDotenv } from "dotenv";
+import { createJWTToken } from "../../AuthMiddleware/TokenAuth.js";
 configDotenv();
 
 const router = express.Router();
@@ -45,6 +46,23 @@ function decryptJson(payload) {
     decipher.setAuthTag(tag);
     const decrypted = Buffer.concat([decipher.update(ciphertext), decipher.final()]);
     return JSON.parse(decrypted.toString("utf8"));
+}
+
+function normalizeDevUser(body = {}) {
+    const input = body.user ?? body;
+    const users = Array.isArray(input) ? input : [input];
+    const firstUser = users[0] && typeof users[0] === "object" ? users[0] : {};
+    const displayName = body.emp_name ?? body.ename ?? firstUser.emp_name ?? firstUser.ename ?? "Postman Developer";
+
+    return [
+        {
+            ecno: body.ecno ?? firstUser.ecno ?? process.env.DEV_AUTH_ECNO ?? "DEV001",
+            emp_name: displayName,
+            ename: displayName,
+            ...firstUser,
+        },
+        ...users.slice(1),
+    ];
 }
 
 // Guard — block access in production regardless of how the route was registered
@@ -101,6 +119,33 @@ router.post("/encrypt", (req, res) => {
         return res.status(500).json({
             success: false,
             message: "Encryption failed.",
+            detail: err.message,
+        });
+    }
+});
+
+/**
+ * POST /api/debug/token
+ * Body: optional user object, or { user: {...} }, or { user: [{...}] }
+ * Returns a raw Bearer JWT for Postman/backend testing.
+ */
+router.post("/token", (req, res) => {
+    try {
+        const user = normalizeDevUser(req.body ?? {});
+        const token = createJWTToken(user);
+
+        return res.json({
+            success: true,
+            tokenType: "Bearer",
+            token,
+            authorization: `Bearer ${token}`,
+            expiresIn: "24h",
+            user,
+        });
+    } catch (err) {
+        return res.status(500).json({
+            success: false,
+            message: "Token generation failed.",
             detail: err.message,
         });
     }

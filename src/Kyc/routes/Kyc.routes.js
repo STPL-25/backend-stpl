@@ -13,5 +13,9 @@ Kycrouter.get('/get_all_kycs', cacheMiddleware("kyc:list", 120), KYCControllers.
 
 Kycrouter.get('/get_pending_approvals', cacheMiddleware("kyc:pending", 60), KYCControllers.getPendingApprovals)
 Kycrouter.post('/approve_kyc', KYCControllers.approveKyc)
+
+Kycrouter.get('/fetch_vendor_datas', cacheMiddleware("kyc:vendors", 120), KYCControllers.fetchVendorDatas)
+Kycrouter.post('/Get_GSTN_Details', KYCControllers.getGSTNDetails)
+
 export default Kycrouter;
 

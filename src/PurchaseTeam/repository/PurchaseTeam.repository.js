@@ -81,6 +81,7 @@ class PurchaseTeamRepository {
   // ── PO CONFIRMATION (Step 1) ─────────────────────────────────────────────
 
   async savePOConfirmation(confirmationData) {
+    console.log("Saving PO confirmation with data:", confirmationData);
     return this.executeStoredProcedure("usp_Save_PO_Request", confirmationData);
   }
 

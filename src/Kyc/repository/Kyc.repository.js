@@ -8,6 +8,8 @@ class KYCRepo {
     this.storedProcedures = {
       getAllKYC: 'sp_get_kyc_info',
       getPendingApprovals: 'sp_get_kyc_approval',
+      approveKyc: 'sp_approve_kyc_datas',
+      fetchVendorDatas: 'sp_fetch_vendor_datas',
       // getKYCById: 'sp_nt_GetKYCRecordById',
       // createKYC: 'sp_nt_CreateKYCRecord',
       createKYC: 'sp_InsertKYCData',
@@ -71,6 +73,7 @@ class KYCRepo {
   async createKYCRecord(data) {
     try {
       const request = mssqlPool.request();
+      console.log(data)
       request.input('jsonInput', mssql.NVarChar(mssql.MAX), JSON.stringify(data));
       
       const result = await request.execute(this.storedProcedures.createKYC);
@@ -184,8 +187,23 @@ class KYCRepo {
       console.log(approvalData)
       const request = mssqlPool.request();
       request.input('jsonInput', mssql.NVarChar(mssql.MAX), JSON.stringify(approvalData));
-      const result = await request.execute('sp_approve_kyc_datas');
+      console.log(approvalData)
+      const result = await request.execute(this.storedProcedures.approveKyc);
       return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async fetchVendorDatas(filters = {}) {
+    try {
+      const request = mssqlPool.request();
+      request.input('jsonInput', mssql.NVarChar(mssql.MAX), JSON.stringify(filters));
+      const result = await request.execute(this.storedProcedures.fetchVendorDatas);
+      // SP returns a single row with the FOR JSON result
+      const raw = result.recordset?.[0];
+      const jsonStr = raw ? Object.values(raw)[0] : null;
+      return jsonStr ? JSON.parse(jsonStr) : { vendors: [] };
     } catch (error) {
       throw new Error(`Database error: ${error.message}`);
     }

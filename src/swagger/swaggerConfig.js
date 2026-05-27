@@ -8,7 +8,8 @@ const options = {
       version: "1.0.0",
       description:
         "REST API documentation for the Non-Trade ERP Procurement System. " +
-        "All protected routes require a Bearer token obtained from the `/api/secure/log_in` endpoint.",
+        "Protected routes use the HttpOnly session cookie created by `/api/secure/log_user`. " +
+        "For non-production Postman testing, generate a Bearer token with `/api/debug/token`.",
       contact: { name: "SKTM IT", email: "it@sktm.com" },
     },
     servers: [
@@ -19,9 +20,9 @@ const options = {
         bearerAuth: {
           type: "http",
           scheme: "bearer",
-          bearerFormat: "AES(JWT)",
+          bearerFormat: "JWT",
           description:
-            "Pass the base64-encoded JSON `{token, iv}` returned by `/api/secure/log_in`.",
+            "Non-production only: pass the raw JWT returned by `/api/debug/token`.",
         },
       },
       schemas: {

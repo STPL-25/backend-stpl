@@ -87,4 +87,33 @@ describe("JWT Auth Middleware (verifyJWT)", () => {
     const sentUnauth      = res.status.mock.calls.some((args) => args[0] === 401);
     expect(calledWithError || sentUnauth).toBe(true);
   });
+
+  it("accepts Bearer tokens in development without a session", async () => {
+    const originalNodeEnv = process.env.NODE_ENV;
+    process.env.NODE_ENV = "development";
+
+    try {
+      const jwt = await import("jsonwebtoken");
+      const { default: verifyJWT } = await import("../src/AuthMiddleware/JwtAuth.js");
+      const token = jwt.default.sign(
+        { user: [{ ecno: "TEST001", emp_name: "Test User" }] },
+        process.env.JWT_SECRET,
+        { algorithm: "HS256", expiresIn: "1h" }
+      );
+      const req = mockReq({
+        headers: { authorization: `Bearer ${token}` },
+        session: undefined,
+      });
+      const res = mockRes();
+      const next = jest.fn();
+
+      await verifyJWT(req, res, next);
+
+      expect(next).toHaveBeenCalledWith();
+      expect(req.user_ecno).toBe("TEST001");
+    } finally {
+      if (originalNodeEnv === undefined) delete process.env.NODE_ENV;
+      else process.env.NODE_ENV = originalNodeEnv;
+    }
+  });
 });

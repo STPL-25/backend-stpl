@@ -12,7 +12,6 @@ import cookieParser from "cookie-parser";
 import { configDotenv } from "dotenv";
 import swaggerUi from "swagger-ui-express";
 import { swaggerSpec } from "./src/swagger/swaggerConfig.js";
-
 import commonMasterRouter from "./src/Masters/Routes/CommonMasterRoutes.js";
 import commonBasicDetailsRouter from "./src/Common/Routes/CommonMasterRoutes.js";
 import signUpRouter from "./src/Login/Routes/SignUpRoutes.js";
@@ -42,13 +41,15 @@ const server = createServer(app);
 // REDIS SETUP
 // ----------------------------
 const redisClient = createClient({
-    url: process.env.REDIS_URL || "redis://localhost:6379",
     socket: {
+        host: process.env.REDIS_HOST || "localhost",
+        port: parseInt(process.env.REDIS_PORT || "6379"),
         reconnectStrategy: (retries) => {
             if (retries > 10) return new Error("Redis connection failed after 10 retries");
             return Math.min(retries * 50, 500);
         },
     },
+    // password: process.env.REDIS_PASSWORD,
 });
 
 redisClient.on("error", (err) => console.error("Redis Client Error:", err));
@@ -186,17 +187,17 @@ app.use(
         customCss: `
             .swagger-ui .topbar { background: linear-gradient(135deg,#1e293b 0%,#334155 100%); }
             .swagger-ui .topbar-wrapper img { display:none; }
-            .swagger-ui .topbar-wrapper::before { content:"🏭 Non-Trade ERP API"; color:#fff; font-size:18px; font-weight:700; }
+            .swagger-ui .topbar-wrapper::before { content:" Non-Trade ERP API"; color:#fff; font-size:18px; font-weight:700; }
         `,
         swaggerOptions: { persistAuthorization: true, filter: true, displayRequestDuration: true },
     })
 );
-app.get("/api-docs.json", (_req, res) => res.json(swaggerSpec));
+// app.get("/api-docs.json", (_req, res) => res.json(swaggerSpec));
 
 // Public health check
-app.get("/health", (_req, res) =>
-    res.json({ status: "ok", timestamp: new Date().toISOString(), redis: redisClient.isReady ? "connected" : "disconnected", docs: "/api-docs" })
-);
+// app.get("/health", (_req, res) =>
+//     res.json({ status: "ok", timestamp: new Date().toISOString(), redis: redisClient.isReady ? "connected" : "disconnected", docs: "/api-docs" })
+// );
 
 // ----------------------------
 // ROUTES
@@ -213,13 +214,13 @@ app.use("/api/common_master",         verifyJWT, payloadCrypto, commonMasterRout
 app.use("/api/user_approval",        apiLimiter, verifyJWT, payloadCrypto, UserApprovalrouter);
 app.use("/api/common_basic_details", apiLimiter, verifyJWT, payloadCrypto, commonBasicDetailsRouter);
 app.use("/api/budget",               apiLimiter, verifyJWT, payloadCrypto, BudgetRouter);
-app.use("/api/kyc",                  apiLimiter, verifyJWT, payloadCrypto, Kycrouter);
+app.use("/api/kyc",                  apiLimiter,  verifyJWT,payloadCrypto, Kycrouter);
 app.use("/api/workflow_approval",    apiLimiter, verifyJWT, payloadCrypto, WorkFlowApprovalrouter);
 app.use("/api/pr",                   apiLimiter, verifyJWT, payloadCrypto, PRrouter);
-app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
-app.use("/api/purchase_team",        apiLimiter, verifyJWT, payloadCrypto, PurchaseTeamRouter);
-app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
-app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
+// app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
+app.use("/api/purchase_team",        apiLimiter,  verifyJWT,payloadCrypto, PurchaseTeamRouter);
+// app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
+// app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
 app.use(imageRouter);
 
 // ----------------------------

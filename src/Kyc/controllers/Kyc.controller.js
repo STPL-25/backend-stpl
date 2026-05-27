@@ -21,6 +21,8 @@ class KYCControllers {
   static async getPendingApprovals(req, res) {
     try {
       const user = getAuthUser(req);
+
+      console.log(req.user_ecno)
       const data = await KYCServices.getPendingApprovals(user?.ecno);
       res.json({ success: true, data, count: data.length });
     } catch (error) {
@@ -31,6 +33,7 @@ class KYCControllers {
   static async approveKyc(req, res) {
     try {
       const user = getAuthUser(req);
+
       const { kyc_basic_info_sno, ecno, comments, approval_stages, action } = req.body;
 
       if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
@@ -46,9 +49,8 @@ class KYCControllers {
 
       const data = await KYCServices.approveKyc({
         kyc_basic_info_sno,
-        approved_by: ecno,
+        ecno: ecno,
         comments: comments || "",
-        approval_stages,
         action,
       });
       await invalidateCache(req.redisClient, "kyc:list", "kyc:pending");
@@ -62,6 +64,41 @@ class KYCControllers {
       res.json({ success: true, data, message: `KYC ${action === "approve" ? "approved" : "rejected"} successfully` });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async fetchVendorDatas(req, res) {
+    try {
+      const { status, is_active, search } = req.query;
+      const filters = {};
+      if (status)    filters.status    = status;
+      if (is_active) filters.is_active = is_active;
+      if (search)    filters.search    = search;
+
+      const data = await KYCServices.fetchVendorDatas(filters);
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async getGSTNDetails(req, res) {
+    try {
+      const gst = String(req.body?.gst ?? "").trim();
+
+      if (!gst) {
+        return res
+          .status(400)
+          .json({ success: false, error: "gst is required" });
+      }
+
+      const data = await KYCServices.getGSTNDetails(gst);
+      res.json({ success: true, data });
+    } catch (error) {
+      console.log(error)
+      res
+        .status(error.statusCode ?? 500)
+        .json({ success: false, error: error.message });
     }
   }
 
@@ -109,6 +146,7 @@ class KYCControllers {
         message: "KYC record created successfully",
       });
     } catch (error) {
+      console.log(error)
       res.status(500).json({ success: false, error: error.message });
     }
   }
