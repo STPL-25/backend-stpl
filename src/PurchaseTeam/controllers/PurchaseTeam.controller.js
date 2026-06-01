@@ -1,5 +1,7 @@
 import PurchaseTeamService from "../services/PurchaseTeam.service.js";
 import { invalidateCache, invalidateCacheByPattern } from "../../Middleware/redisCache.js";
+import { ftpUploader } from "../../Utils/ImagesUpload/ImgUpload.js";
+import { decryptFormPayload } from "../../Middleware/payloadCrypto.js";
 
 function getAuthUser(req) {
   const user = Array.isArray(req.user) ? req.user[0] : req.user;
@@ -30,12 +32,37 @@ class PurchaseTeamController {
   // ── SUPPLIER QUOTATION CRUD ─────────────────────────────────────────────
   static async createSupplierQuotation(req, res) {
     try {
+      // Multipart upload (quotation document attached): decrypt the `_ep`
+      // metadata field that multer parsed, merging it back into req.body.
+      const isMultipart = req.is("multipart/form-data");
+      if (isMultipart) {
+        try {
+          decryptFormPayload(req);
+        } catch {
+          return res.status(400).json({ success: false, error: "Invalid encrypted form payload." });
+        }
+      }
+
       const user = getAuthUser(req);
       const ecno = user?.ecno;
       if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
 
+      // Upload the quotation document (image/PDF) to FTP if present.
+      let quotationFileUrl = req.body.sq_quotation_file || "";
+      if (Array.isArray(req.files) && req.files.length) {
+        const quotationFile =
+          req.files.find((f) => f.fieldname === "quotation_file") || req.files[0];
+        if (quotationFile) {
+          quotationFileUrl = await ftpUploader.uploadFileIfExists(
+            quotationFile,
+            "NON_TRADE_DATAS/QUOTATION_DATAS"
+          );
+        }
+      }
+
       const data = await PurchaseTeamService.createSupplierQuotation({
         ...req.body,
+        sq_quotation_file: quotationFileUrl,
         created_by: ecno,
       });
       const prSno = req.body.pr_basic_sno;
@@ -138,6 +165,45 @@ class PurchaseTeamController {
 
       const data = await PurchaseTeamService.getPOConfirmation(Number(prBasicSno));
       res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // ── SPLIT GROUPS ────────────────────────────────────────────────────────
+  static async saveSplitGroup(req, res) {
+    try {
+      const user = getAuthUser(req);
+      const ecno = user?.ecno;
+      const data = await PurchaseTeamService.saveSplitGroup({ ...req.body, created_by: ecno });
+      const prSno = req.body.pr_basic_sno;
+      console.log(data)
+      if (prSno) await invalidateCache(req.redisClient, `pt:split_groups:${prSno}`);
+      res.json({ success: true, data, message: "Split group saved" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async getSplitGroups(req, res) {
+    try {
+      const { prBasicSno } = req.params;
+      if (!prBasicSno) return res.status(400).json({ success: false, error: "pr_basic_sno required" });
+      const data = await PurchaseTeamService.getSplitGroups(Number(prBasicSno));
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async updateSplitGroupOrg(req, res) {
+    try {
+      const user = getAuthUser(req);
+      const ecno = user?.ecno;
+      const { pr_basic_sno } = req.body;
+      const data = await PurchaseTeamService.updateSplitGroupOrg({ ...req.body, modified_by: ecno });
+      if (pr_basic_sno) await invalidateCache(req.redisClient, `pt:split_groups:${pr_basic_sno}`);
+      res.json({ success: true, data, message: "Split group org updated" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }

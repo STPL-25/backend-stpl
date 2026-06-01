@@ -39,6 +39,18 @@ class PurchaseTeamService {
     return this.repo.getPOConfirmation(prBasicSno);
   }
 
+  static async saveSplitGroup(splitData) {
+    return this.repo.saveSplitGroup(splitData);
+  }
+
+  static async getSplitGroups(prBasicSno) {
+    return this.repo.getSplitGroups(prBasicSno);
+  }
+
+  static async updateSplitGroupOrg(data) {
+    return this.repo.updateSplitGroupOrg(data);
+  }
+
   static async saveQuotationDraft(redisClient, ecno, draftData) {
     return this.repo.saveQuotationDraft(redisClient, ecno, draftData);
   }

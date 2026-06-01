@@ -136,7 +136,7 @@ app.use(compression());
 // CORS
 // ----------------------------
 app.use(cors({
-    origin: [process.env.CLIENT_URL, "http://localhost:5174","http://localhost:5176"].filter(Boolean),
+    origin: [process.env.CLIENT_URL, "http://localhost:5173","http://localhost:5000"].filter(Boolean),
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -259,7 +259,7 @@ process.on("SIGINT", shutdown);
 // ----------------------------
 // START SERVER
 // ----------------------------
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT||8081 ;
 server.listen(PORT, () => {
     console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || "development"}]`);
     console.log(`API Docs → http://localhost:${PORT}/api-docs`);

@@ -17,6 +17,7 @@ class PurchaseTeamRepository {
           JSON.stringify(parameters)
         );
       }
+      console.log(`Executing stored procedure: ${procedureName} with parameters:`, parameters);
       const result = await request.execute(procedureName);
       return result.recordset;
     } catch (error) {
@@ -38,7 +39,7 @@ class PurchaseTeamRepository {
   // ── SUPPLIER QUOTATION ──────────────────────────────────────────────────
   async createSupplierQuotation(quotationData) {
 
-    console.log("Creating supplier quotation with data:", quotationData);
+    // console.log("Creating supplier quotation with data:", quotationData);
     return this.executeStoredProcedure("sp_nt_CreateSupplierQuotation", quotationData);
   }
 
@@ -105,6 +106,30 @@ class PurchaseTeamRepository {
     } catch (error) {
       throw new Error(`Database error: ${error.message}`);
     }
+  }
+
+  // ── SPLIT GROUPS ────────────────────────────────────────────────────────
+
+  async saveSplitGroup(splitData) {
+    console.log("Saving split group with data:", splitData);
+    return this.executeStoredProcedure("sp_InserPurchaseRecords", splitData);
+  }
+
+  async getSplitGroups(prBasicSno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("pr_basic_sno", mssql.Int, prBasicSno);
+
+      const result = await request.execute("sp_nt_GetSplitGroups");
+      console.log("Split groups result:", result);
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async updateSplitGroupOrg(data) {
+    return this.executeStoredProcedure("sp_nt_UpdateSplitGroupOrg", data);
   }
 
   // ── DRAFT OPERATIONS (Redis) ────────────────────────────────────────────
