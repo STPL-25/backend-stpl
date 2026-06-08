@@ -17,7 +17,6 @@ class PurchaseTeamRepository {
           JSON.stringify(parameters)
         );
       }
-      console.log(`Executing stored procedure: ${procedureName} with parameters:`, parameters);
       const result = await request.execute(procedureName);
       return result.recordset;
     } catch (error) {
@@ -39,14 +38,17 @@ class PurchaseTeamRepository {
   // ── SUPPLIER QUOTATION ──────────────────────────────────────────────────
   async createSupplierQuotation(quotationData) {
 
-    // console.log("Creating supplier quotation with data:", quotationData);
+    console.log("Creating supplier quotation with data:", quotationData);
     return this.executeStoredProcedure("sp_nt_CreateSupplierQuotation", quotationData);
   }
 
-  async getSupplierQuotations(prBasicSno) {
+  async getSupplierQuotations(prBasicSno, pr_no) {
     try {
       const request = mssqlPool.request();
+      console.log("Fetching supplier quotations for PR Basic Sno:", prBasicSno, "and PR No:", pr_no);
       request.input("pr_basic_sno", mssql.Int, prBasicSno);
+      request.input("pr_no", mssql.VarChar(20), pr_no);
+
       const result = await request.execute("sp_nt_GetSupplierQuotations");
       return result.recordset;
     } catch (error) {
@@ -57,11 +59,13 @@ class PurchaseTeamRepository {
 
   async selectQuotation(selectedQuotation, selectedBy) {
     try {
-      console.log();
+      selectedQuotation.selected_by = selectedBy;
       const request = mssqlPool.request();
+      console.log("Selecting quotation with data:", selectedQuotation);
       request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify(selectedQuotation));
       const result = await request.execute("sp_nt_SelectSupplierQuotation");
       console.log(result)
+      
       return result.recordset;
     } catch (error) {
       console.log(error);
@@ -83,7 +87,7 @@ class PurchaseTeamRepository {
 
   async savePOConfirmation(confirmationData) {
     console.log("Saving PO confirmation with data:", confirmationData);
-    return this.executeStoredProcedure("usp_Save_PO_Request", confirmationData);
+    return this.executeStoredProcedure("sp_Save_PO_Request", confirmationData);
   }
 
   async getPOConfirmation(prBasicSno) {
@@ -112,9 +116,9 @@ class PurchaseTeamRepository {
 
   async saveSplitGroup(splitData) {
     console.log("Saving split group with data:", splitData);
-    return this.executeStoredProcedure("sp_InserPurchaseRecords", splitData);
+    return this.executeStoredProcedure("sp_split_pr", splitData);
   }
-
+//sp_InserPurchaseRecords
   async getSplitGroups(prBasicSno) {
     try {
       const request = mssqlPool.request();

@@ -112,6 +112,15 @@ io.on("connection", (socket) => {
         socket.leave("pr:approval");
     });
 
+    // Purchase Team room: live PR-split updates on the purchase screen sidebar
+    socket.on("join-purchase-team", () => {
+        socket.join("purchase-team");
+    });
+
+    socket.on("leave-purchase-team", () => {
+        socket.leave("purchase-team");
+    });
+
     socket.on("join-kyc-approval", () => {
         socket.join("kyc:approval");
     });
@@ -136,7 +145,7 @@ app.use(compression());
 // CORS
 // ----------------------------
 app.use(cors({
-    origin: [process.env.CLIENT_URL, "http://localhost:5173","http://localhost:5000"].filter(Boolean),
+    origin: [process.env.CLIENT_URL, "http://localhost:5173","http://localhost:5000","http://localhost:4200"].filter(Boolean),
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],

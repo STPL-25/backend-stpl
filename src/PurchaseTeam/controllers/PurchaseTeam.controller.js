@@ -70,18 +70,22 @@ class PurchaseTeamController {
       await invalidateCache(req.redisClient, "pt:approved_prs");
       res.json({ success: true, data, message: "Supplier quotation created" });
     } catch (error) {
+      console.log(error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
 
   static async getSupplierQuotations(req, res) {
     try {
-      const { prBasicSno } = req.params;
+      let { prBasicSno ,pr_no} = req.params;
+      pr_no=atob(pr_no);
+      console.log(pr_no)
       if (!prBasicSno) return res.status(400).json({ success: false, error: "pr_basic_sno required" });
 
-      const data = await PurchaseTeamService.getSupplierQuotations(Number(prBasicSno));
+      const data = await PurchaseTeamService.getSupplierQuotations(Number(prBasicSno),pr_no);
       res.json({ success: true, data });
     } catch (error) {
+      console.log(error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -94,9 +98,16 @@ class PurchaseTeamController {
 
       const { selectedQuotation } = req.body;
       const data = await PurchaseTeamService.selectQuotation(selectedQuotation, ecno);
-      const prSno = selectedQuotation?.pr_basic_sno;
-      if (prSno) await invalidateCache(req.redisClient, `pt:quotations:${prSno}`);
-      await invalidateCache(req.redisClient, "pt:approved_prs");
+      // const prSno = selectedQuotation?.pr_basic_sno;
+      // if (prSno) await invalidateCache(req.redisClient, `pt:quotations:${prSno}`);
+      // await invalidateCache(req.redisClient, "pt:approved_prs");
+
+      // Real-time: a quotation selection can change a PR's state, so refresh the
+      // approved-PR list on every Purchase Team screen live (across clients) —
+      // same mechanism as saveSplitGroup.
+      const approvedPRs = await PurchaseTeamService.getApprovedPRs();
+      req.io?.to("purchase-team").emit("pt:split:updated", { data: approvedPRs });
+
       res.json({ success: true, data, message: "Quotation selected" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -177,8 +188,20 @@ class PurchaseTeamController {
       const ecno = user?.ecno;
       const data = await PurchaseTeamService.saveSplitGroup({ ...req.body, created_by: ecno });
       const prSno = req.body.pr_basic_sno;
-      console.log(data)
-      if (prSno) await invalidateCache(req.redisClient, `pt:split_groups:${prSno}`);
+      // if (prSno) await invalidateCache(req.redisClient, `pt:split_groups:${prSno}`);
+
+      // Real-time: notify everyone on the Purchase Team screen so their PR
+      // sidebar reflects the new split group live (across clients).
+      const approvedPRs = await PurchaseTeamService.getApprovedPRs();
+      req.io?.to("purchase-team").emit("pt:split:updated", {
+        data: approvedPRs,
+        // pr_basic_sno: prSno,
+        // group_no: req.body.group_no,
+        // item_count: Array.isArray(req.body.items) ? req.body.items.length : 0,
+        // updated_by: ecno,
+        // updated_by_name: user?.ename ?? user?.emp_name ?? user?.username ?? "",
+      });
+
       res.json({ success: true, data, message: "Split group saved" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
