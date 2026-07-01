@@ -23,6 +23,7 @@ import Kycrouter from "./src/Kyc/routes/Kyc.routes.js";
 import imageRouter from "./src/Utils/ImagesUpload/imageRoute.js";
 import WorkFlowApprovalrouter from "./src/WorkFlowApproval/routes/WorkFlowApproval.routes.js";
 import PRrouter from "./src/PR/routes/PR.routes.js";
+import POrouter from "./src/PO/routes/PO.routes.js";
 import StorePOrouter from "./src/StorePO/routes/StorePO.routes.js";
 import PurchaseTeamRouter from "./src/PurchaseTeam/routes/PurchaseTeam.routes.js";
 import GRNRouter from "./src/GRN/routes/GRN.routes.js";
@@ -31,7 +32,6 @@ import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
 import cryptoDebugRouter from "./src/Utils/CryptoDebug/cryptoDebugRoutes.js";
 import jwt from "jsonwebtoken";
-
 configDotenv();
 
 const app = express();
@@ -110,6 +110,14 @@ io.on("connection", (socket) => {
 
     socket.on("leave-pr-approval", () => {
         socket.leave("pr:approval");
+    });
+
+    socket.on("join-po-approval", () => {
+        socket.join("po:approval");
+    });
+
+    socket.on("leave-po-approval", () => {
+        socket.leave("po:approval");
     });
 
     // Purchase Team room: live PR-split updates on the purchase screen sidebar
@@ -226,11 +234,13 @@ app.use("/api/budget",               apiLimiter, verifyJWT, payloadCrypto, Budge
 app.use("/api/kyc",                  apiLimiter,  verifyJWT,payloadCrypto, Kycrouter);
 app.use("/api/workflow_approval",    apiLimiter, verifyJWT, payloadCrypto, WorkFlowApprovalrouter);
 app.use("/api/pr",                   apiLimiter, verifyJWT, payloadCrypto, PRrouter);
+app.use("/api/po",                   apiLimiter, verifyJWT, payloadCrypto, POrouter);
 // app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
 app.use("/api/purchase_team",        apiLimiter,  verifyJWT,payloadCrypto, PurchaseTeamRouter);
 // app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
 // app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
 app.use(imageRouter);
+
 
 // ----------------------------
 // GLOBAL ERROR HANDLER

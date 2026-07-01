@@ -4,6 +4,10 @@ configDotenv();
 
 const JWT_SECRET = process.env.JWT_SECRET;
 
+// Dev bypass: only active when NODE_ENV !== 'production' AND DEV_BYPASS_TOKEN is set
+const DEV_BYPASS_TOKEN = process.env.DEV_BYPASS_TOKEN;
+const DEV_BYPASS_ECNO = process.env.DEV_BYPASS_ECNO || "DEV001";
+
 // Session ID rotates every 1 hour
 const SESSION_ROTATION_INTERVAL = 60 * 60 * 1000; // 1 hour in ms
 
@@ -37,10 +41,46 @@ function getEcnoFromUser(user) {
  * - Rotates session ID every SESSION_ROTATION_INTERVAL to prevent session fixation.
  * - Updates lastActivity on every successful authenticated request.
  */
+function wrapDevResponse(req, res) {
+  const requestSnapshot = {
+    method: req.method,
+    url: req.originalUrl,
+    params: req.params,
+    query: req.query,
+    body: req.body,
+    user: req.user,
+  };
+
+  const originalJson = res.json.bind(res);
+  res.json = (data) => {
+    return originalJson({
+      _dev: true,
+      request: requestSnapshot,
+      response: data,
+      meta: {
+        timestamp: new Date().toISOString(),
+        status: res.statusCode,
+        ecno: req.user_ecno,
+      },
+    });
+  };
+}
+
 const verifyJWT = async (req, res, next) => {
+  // Dev bypass: static token for Postman/API documentation — never active in production
+  if (process.env.NODE_ENV !== "production" && DEV_BYPASS_TOKEN) {
+    const incoming = getBearerToken(req);
+    if (incoming === DEV_BYPASS_TOKEN) {
+      req.user = { ecno: DEV_BYPASS_ECNO, name: "Dev User", role: "dev" };
+      req.user_ecno = DEV_BYPASS_ECNO;
+      wrapDevResponse(req, res);
+      return next();
+    }
+  }
 
   const sessionJwt = req.session?.jwt;
   const bearerJwt = process.env.NODE_ENV !== "production" ? getBearerToken(req) : null;
+  
   const jwtToken = sessionJwt || bearerJwt;
   const isSessionAuth = Boolean(sessionJwt);
   if (!jwtToken) {

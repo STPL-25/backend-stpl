@@ -59,6 +59,7 @@ class PurchaseTeamController {
           );
         }
       }
+      console.log(req.body)
 
       const data = await PurchaseTeamService.createSupplierQuotation({
         ...req.body,
