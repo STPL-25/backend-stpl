@@ -126,6 +126,7 @@ imageRouter.get('/dwl/:imagepath/:subpath/:filename', async (req, res) => {
 
     await client.downloadTo(res, filename);
   } catch (err) {
+    console.log('FTP download error:', err);
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: 'FTP download failed.' });
     } else {

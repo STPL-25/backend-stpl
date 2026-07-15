@@ -202,7 +202,8 @@ class PurchaseTeamController {
         // updated_by: ecno,
         // updated_by_name: user?.ename ?? user?.emp_name ?? user?.username ?? "",
       });
-
+      console.log(data)
+      
       res.json({ success: true, data, message: "Split group saved" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

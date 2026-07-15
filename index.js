@@ -36,6 +36,7 @@ configDotenv();
 
 const app = express();
 const server = createServer(app);
+app.set("trust proxy", 1); // behind API gateway — real client IP for rate limiting / logs
 
 // ----------------------------
 // REDIS SETUP
@@ -211,10 +212,10 @@ app.use(
 );
 // app.get("/api-docs.json", (_req, res) => res.json(swaggerSpec));
 
-// Public health check
-// app.get("/health", (_req, res) =>
-//     res.json({ status: "ok", timestamp: new Date().toISOString(), redis: redisClient.isReady ? "connected" : "disconnected", docs: "/api-docs" })
-// );
+// Public health check (probed by the API gateway)
+app.get("/health", (_req, res) =>
+    res.json({ status: "ok", timestamp: new Date().toISOString(), redis: redisClient.isReady ? "connected" : "disconnected", docs: "/api-docs" })
+);
 
 // ----------------------------
 // ROUTES

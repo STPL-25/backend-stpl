@@ -40,6 +40,7 @@ class PurchaseTeamService {
   }
 
   static async saveSplitGroup(splitData) {
+    console.log("Saving split group with data:", splitData);
     return this.repo.saveSplitGroup(splitData);
   }
 
