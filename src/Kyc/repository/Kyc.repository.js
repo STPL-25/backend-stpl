@@ -10,6 +10,7 @@ class KYCRepo {
       getPendingApprovals: 'sp_get_kyc_approval',
       approveKyc: 'sp_approve_kyc_datas',
       fetchVendorDatas: 'sp_fetch_vendor_datas',
+      createSupplierLogin: 'sp_nt_CreateSupplierLogin',
       // getKYCById: 'sp_nt_GetKYCRecordById',
       // createKYC: 'sp_nt_CreateKYCRecord',
       createKYC: 'sp_InsertKYCData',
@@ -184,12 +185,43 @@ class KYCRepo {
 
   async approveKyc(approvalData) {
     try {
-      console.log(approvalData)
       const request = mssqlPool.request();
       request.input('jsonInput', mssql.NVarChar(mssql.MAX), JSON.stringify(approvalData));
-      console.log(approvalData)
       const result = await request.execute(this.storedProcedures.approveKyc);
-      return result.recordset;
+      // The SP emits debug SELECTs before its outcome row, so the meaningful
+      // recordset is the last one — return them all and let the service pick.
+      return result.recordsets;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async getSupplierContact(kyc_basic_info_sno) {
+    try {
+      const request = mssqlPool.request();
+      request.input('kyc_basic_info_sno', mssql.Int, kyc_basic_info_sno);
+      const result = await request.query(
+        `SELECT company_name, email, supp_code
+         FROM kyc_basic_info
+         WHERE kyc_basic_info_sno = @kyc_basic_info_sno`
+      );
+      return result.recordset[0];
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async createSupplierLogin({ kyc_basic_info_sno, login_email, password_hash, created_by }) {
+    try {
+      const request = mssqlPool.request();
+      request.input('jsonInput', mssql.NVarChar(mssql.MAX), JSON.stringify({
+        kyc_basic_info_sno,
+        login_email,
+        password_hash,
+        created_by,
+      }));
+      const result = await request.execute(this.storedProcedures.createSupplierLogin);
+      return result.recordset[0];
     } catch (error) {
       throw new Error(`Database error: ${error.message}`);
     }

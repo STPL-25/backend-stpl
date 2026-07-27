@@ -74,6 +74,21 @@ const io = new Server(server, {
     adapter: createAdapter(pubClient, subClient),
 });
 
+// Separate subscriber: bridges grn-service (stateless, no Socket.IO of its
+// own) into this process's `io` instance. grn-service publishes
+// { room, event, payload } JSON on "socket:broadcast" whenever GRN/Gate
+// Entry/Inventory data changes; we just re-emit it to the target room.
+const appSubClient = redisClient.duplicate();
+await appSubClient.connect();
+await appSubClient.subscribe("socket:broadcast", (message) => {
+    try {
+        const { room, event, payload } = JSON.parse(message);
+        if (room && event) io.to(room).emit(event, payload);
+    } catch (err) {
+        console.error("socket:broadcast message error:", err.message);
+    }
+});
+
 // Socket.IO: load the express session from the cookie so socket.request.session.jwt is available
 io.use((socket, next) => {
     sessionMiddleware(socket.request, {}, next);
@@ -136,6 +151,26 @@ io.on("connection", (socket) => {
 
     socket.on("leave-kyc-approval", () => {
         socket.leave("kyc:approval");
+    });
+
+    // GRN / Gate Entry room: live updates on the GRN + Gate Entry pages
+    // (grn:created, gate_entry:created, gate_entry:status_updated, grn:draft:*)
+    socket.on("join-grn", () => {
+        socket.join("grn:live");
+    });
+
+    socket.on("leave-grn", () => {
+        socket.leave("grn:live");
+    });
+
+    // Inventory room: live stock updates (inventory:updated), including
+    // auto-posted receipts from GRN
+    socket.on("join-inventory", () => {
+        socket.join("inventory:live");
+    });
+
+    socket.on("leave-inventory", () => {
+        socket.leave("inventory:live");
     });
 
     socket.on("disconnect", () => {});
@@ -225,19 +260,19 @@ app.get("/health", (_req, res) =>
 app.use("/api/debug", cryptoDebugRouter);
 
 // Auth routes — BasicAuth + rate limiter (no JWT required at this stage)
-app.use("/api/secure",  payloadCrypto, signUpRouter);
+app.use("/api/secure",   signUpRouter);
 
 // Protected API routes — require valid JWT + general rate limit + payload encryption
-app.use("/api/common_master",         verifyJWT, payloadCrypto, commonMasterRouter);
-app.use("/api/user_approval",        apiLimiter, verifyJWT, payloadCrypto, UserApprovalrouter);
-app.use("/api/common_basic_details", apiLimiter, verifyJWT, payloadCrypto, commonBasicDetailsRouter);
-app.use("/api/budget",               apiLimiter, verifyJWT, payloadCrypto, BudgetRouter);
-app.use("/api/kyc",                  apiLimiter,  verifyJWT,payloadCrypto, Kycrouter);
-app.use("/api/workflow_approval",    apiLimiter, verifyJWT, payloadCrypto, WorkFlowApprovalrouter);
-app.use("/api/pr",                   apiLimiter, verifyJWT, payloadCrypto, PRrouter);
-app.use("/api/po",                   apiLimiter, verifyJWT, payloadCrypto, POrouter);
+app.use("/api/common_master",         verifyJWT, commonMasterRouter);
+app.use("/api/user_approval",        apiLimiter, verifyJWT,  UserApprovalrouter);
+app.use("/api/common_basic_details", apiLimiter, verifyJWT,  commonBasicDetailsRouter);
+app.use("/api/budget",               apiLimiter, verifyJWT,  BudgetRouter);
+app.use("/api/kyc",                  apiLimiter,  verifyJWT, Kycrouter);
+app.use("/api/workflow_approval",    apiLimiter, verifyJWT,  WorkFlowApprovalrouter);
+app.use("/api/pr",                   apiLimiter, verifyJWT,  PRrouter);
+app.use("/api/po",                   apiLimiter, verifyJWT,  POrouter);
 // app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
-app.use("/api/purchase_team",        apiLimiter,  verifyJWT,payloadCrypto, PurchaseTeamRouter);
+app.use("/api/purchase_team",        apiLimiter,  verifyJWT, PurchaseTeamRouter);
 // app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
 // app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
 app.use(imageRouter);
@@ -267,7 +302,7 @@ app.use((req, res) => {
 // ----------------------------
 async function shutdown() {
     console.log("Shutting down server...");
-    await Promise.all([redisClient.quit(), pubClient.quit(), subClient.quit()]);
+    await Promise.all([redisClient.quit(), pubClient.quit(), subClient.quit(), appSubClient.quit()]);
     server.close(() => {
         console.log("HTTP server closed");
         process.exit(0);

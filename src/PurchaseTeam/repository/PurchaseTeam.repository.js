@@ -78,6 +78,23 @@ class PurchaseTeamRepository {
     return this.executeStoredProcedure("sp_nt_CreatePOFromQuotation", poData);
   }
 
+  // Vendor contact for the "PO generated" email — vendor_sno on a PO is the
+  // same key as kyc_basic_info_sno (see sp_get_po_details_for_approval).
+  async getVendorContact(vendor_sno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("vendor_sno", mssql.Int, vendor_sno);
+      const result = await request.query(
+        `SELECT company_name, email
+         FROM kyc_basic_info
+         WHERE kyc_basic_info_sno = @vendor_sno`
+      );
+      return result.recordset[0];
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
   // ── UPDATE ITEM QUANTITY ────────────────────────────────────────────────
   async updateItemQuantity(updateData) {
     return this.executeStoredProcedure("sp_nt_UpdatePOItemQuantity", updateData);

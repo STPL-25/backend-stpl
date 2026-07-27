@@ -133,6 +133,45 @@ class PurchaseTeamController {
     }
   }
 
+  // ── EMAIL THE GENERATED PO PDF TO THE SUPPLIER ──────────────────────────
+  static async sendPOEmail(req, res) {
+    
+    try {
+      const file = Array.isArray(req.files)
+        ? req.files.find((f) => f.fieldname === "po_pdf") || req.files[0]
+        : null;
+      if (!file) return res.status(400).json({ success: false, error: "po_pdf file is required" });
+
+      const { vendor_sno, po_no, po_date, required_date, terms_conditions, delivery_address } = req.body;
+      if (!vendor_sno || !po_no) {
+        return res.status(400).json({ success: false, error: "vendor_sno and po_no are required" });
+      }
+
+      let items = [];
+      try {
+        items = JSON.parse(req.body.items || "[]");
+      } catch {
+        items = [];
+      }
+
+      const data = await PurchaseTeamService.sendPOEmail({
+        vendor_sno: Number(vendor_sno),
+        po_no,
+        po_date,
+        required_date,
+        terms_conditions,
+        delivery_address,
+        items,
+        pdfBuffer: file.buffer,
+        pdfFilename: file.originalname || `${po_no}.pdf`,
+      });
+
+      res.json({ success: true, data, message: "Purchase Order emailed to supplier" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   // ── UPDATE ITEM QTY ─────────────────────────────────────────────────────
   static async updateItemQuantity(req, res) {
     try {
@@ -194,6 +233,8 @@ class PurchaseTeamController {
       // Real-time: notify everyone on the Purchase Team screen so their PR
       // sidebar reflects the new split group live (across clients).
       const approvedPRs = await PurchaseTeamService.getApprovedPRs();
+      const roomSockets = req.io?.sockets?.adapter?.rooms?.get("purchase-team");
+    
       req.io?.to("purchase-team").emit("pt:split:updated", {
         data: approvedPRs,
         // pr_basic_sno: prSno,

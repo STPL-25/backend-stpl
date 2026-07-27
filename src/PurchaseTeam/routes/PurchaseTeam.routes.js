@@ -11,7 +11,7 @@ PurchaseTeamRouter.get("/getApprovedPRs",  PurchaseTeamController.getApprovedPRs
 
 
 // Approved vendors
-PurchaseTeamRouter.get("/getApprovedVendors", cacheMiddleware("pt:approved_vendors", 300), PurchaseTeamController.getApprovedVendors);
+PurchaseTeamRouter.get("/getApprovedVendors",  PurchaseTeamController.getApprovedVendors);
 
 // Supplier quotation
 PurchaseTeamRouter.post("/createSupplierQuotation", upload.any(), PurchaseTeamController.createSupplierQuotation);
@@ -20,6 +20,9 @@ PurchaseTeamRouter.post("/selectQuotation", PurchaseTeamController.selectQuotati
 
 // Create PO from selected quotation
 PurchaseTeamRouter.post("/createPOFromQuotation", PurchaseTeamController.createPOFromQuotation);
+
+// Email the frontend-generated PO PDF to the supplier
+PurchaseTeamRouter.post("/sendPOEmail", upload.any(), PurchaseTeamController.sendPOEmail);
 
 // Update item quantity
 PurchaseTeamRouter.post("/updateItemQuantity", PurchaseTeamController.updateItemQuantity);

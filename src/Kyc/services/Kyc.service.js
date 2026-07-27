@@ -1,6 +1,9 @@
 import axios from "axios";
+import crypto from "crypto";
+import bcrypt from "bcryptjs";
 import xml2js from "xml2js";
 import KYCRepo from "../repository/Kyc.repository.js";
+import { sendMail, buildSupplierInviteEmail } from "../../Utils/Mailer/mailer.js";
 
 const { stripPrefix } = xml2js.processors;
 const GSTN_SERVICE_URL =
@@ -9,6 +12,15 @@ const GSTN_SERVICE_URL =
 const GSTN_SOAP_ACTION = "http://tempuri.org/Get_GSTN_Details";
 const GSTN_SERVICE_TIMEOUT_MS =
   Number(process.env.GSTN_SERVICE_TIMEOUT_MS) || 15000;
+
+const SUPPLIER_PORTAL_URL =
+  process.env.SUPPLIER_PORTAL_URL || "http://localhost:5173/supplier";
+const SALT_ROUNDS = 10;
+
+function generateTempPassword() {
+  // 10 URL-safe chars, e.g. "aZ3-kQ9pLm" — easy to read out/paste
+  return crypto.randomBytes(8).toString("base64url").slice(0, 10);
+}
 
 function escapeXml(value) {
   return value
@@ -36,8 +48,65 @@ class KYCServices {
     return this.kycRepository.getPendingApprovals(ecno);
   }
 
-  static approveKyc(data) {
-    return this.kycRepository.approveKyc(data);
+  static async approveKyc(data) {
+    const recordsets = await this.kycRepository.approveKyc(data);
+    // The SP emits debug SELECTs first; its real outcome is the last
+    // recordset that carries a `result` column.
+    const outcome =
+      [...recordsets]
+        .reverse()
+        .find((rs) => rs?.length && "result" in rs[0]) ??
+      recordsets[recordsets.length - 1] ??
+      [];
+    const row = outcome[0];
+
+    // Final-stage approval generated the supplier code — send the portal
+    // invite mail (username + temp password, forced reset on first login).
+    if (row?.result === "SUCCESS" && row?.supp_code) {
+      row.supplier_invite = await this.sendSupplierInvite(
+        data.kyc_basic_info_sno,
+        data.ecno
+      );
+    }
+
+    return outcome;
+  }
+
+  // Creates/resets the supplier portal login and emails the credentials.
+  // Never throws: an email failure must not roll back an approval that has
+  // already been committed by the stored procedure.
+  static async sendSupplierInvite(kyc_basic_info_sno, created_by) {
+    try {
+      const contact = await this.kycRepository.getSupplierContact(kyc_basic_info_sno);
+      if (!contact?.email) {
+        return { emailSent: false, reason: "No email on the KYC record" };
+      }
+
+      const tempPassword = generateTempPassword();
+      const password_hash = await bcrypt.hash(tempPassword, SALT_ROUNDS);
+
+      await this.kycRepository.createSupplierLogin({
+        kyc_basic_info_sno,
+        login_email: contact.email,
+        password_hash,
+        created_by,
+      });
+
+      const mailResult = await sendMail(
+        buildSupplierInviteEmail({
+          to: contact.email,
+          companyName: contact.company_name || "Supplier",
+          suppCode: contact.supp_code,
+          tempPassword,
+          portalUrl: SUPPLIER_PORTAL_URL,
+        })
+      );
+
+      return { emailSent: mailResult.sent, login_email: contact.email };
+    } catch (error) {
+      console.error("Supplier invite failed:", error.message);
+      return { emailSent: false, reason: error.message };
+    }
   }
 
   static fetchVendorDatas(filters = {}) {
