@@ -50,6 +50,19 @@ class WorkFlowApprovalController {
     }
   }
 
+  // DELETE /deleteWorkflow — soft delete, cascades to its types and stages
+  static async deleteWorkflow(req, res) {
+    try {
+      const result = await WorkFlowApprovalService.deleteWorkflow(req.body);
+      await invalidateCache(req.redisClient, "wf:workflows");
+      await invalidateCacheByPattern(req.redisClient, "wf:by_entity:*");
+      await invalidateCacheByPattern(req.redisClient, "wf:types:*");
+      res.json({ success: true, message: "Workflow deleted", data: result });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
   // GET /getWorkflowTypes/:workflowId
   static async getWorkflowTypes(req, res) {
     try {
@@ -91,6 +104,18 @@ class WorkFlowApprovalController {
     }
   }
 
+  // DELETE /deleteWorkflowType — soft delete of a type and its stages
+  static async deleteWorkflowType(req, res) {
+    try {
+      const result = await WorkFlowApprovalService.deleteWorkflowType(req.body);
+      await invalidateCache(req.redisClient, "wf:workflows", `wf:types:${req.body.workflow_id}`);
+      await invalidateCache(req.redisClient, `wf:stages:${req.body.workflow_types_id}`);
+      res.json({ success: true, message: "Workflow type deleted", data: result });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
   // GET /getWorkflowStages/:workflowTypesId
   static async getWorkflowStages(req, res) {
     try {
@@ -120,6 +145,17 @@ class WorkFlowApprovalController {
       res.json({ success: true, message: "Workflow stage updated", data: result });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // DELETE /deleteWorkflowStage — soft delete by stage_id or for a whole type
+  static async deleteWorkflowStage(req, res) {
+    try {
+      const result = await WorkFlowApprovalService.deleteWorkflowStage(req.body);
+      await invalidateCache(req.redisClient, `wf:stages:${req.body.workflow_types_id}`);
+      res.json({ success: true, message: "Workflow stage deleted", data: result });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
     }
   }
 }

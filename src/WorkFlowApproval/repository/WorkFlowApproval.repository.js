@@ -67,6 +67,12 @@ class WorkFlowApprovalRepository {
     return this.#executeQuery("sp_nt_UpdateWorkflowMaster", data);
   }
 
+  // Soft delete — is_active flips to 'N', the row stays so approvals already
+  // routed through the workflow keep their history.
+  async deleteWorkflow(data) {
+    return this.#executeQuery("sp_nt_DeleteWorkflow", data);
+  }
+
   // workflow_types
   async saveWorkflowType(data) {
     return this.#executeQuery("sp_nt_SaveWorkflowType", data);
@@ -84,6 +90,11 @@ class WorkFlowApprovalRepository {
     return this.#executeQuery("sp_nt_UpdateWorkflowType", data);
   }
 
+  // Soft delete — also retires the type's stages.
+  async deleteWorkflowType(data) {
+    return this.#executeQuery("sp_nt_DeleteWorkflowType", data);
+  }
+
   // workflow_stage
   async saveWorkflowStage(data) {
     return this.#executeQuery("sp_nt_SaveWorkflowStage", data);
@@ -99,6 +110,11 @@ class WorkFlowApprovalRepository {
 
   async updateWorkflowStage(data) {
     return this.#executeQuery("sp_nt_UpdateWorkflowStage", data);
+  }
+
+  // Soft delete by stage_id, or every stage row of a type.
+  async deleteWorkflowStage(data) {
+    return this.#executeQuery("sp_nt_DeleteWorkflowStage", data);
   }
 }
 

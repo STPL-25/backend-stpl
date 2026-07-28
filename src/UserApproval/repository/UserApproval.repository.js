@@ -12,8 +12,8 @@ class UserApprovalRepository {
     };
 
     this.createProcedureMap = {
-        'saveUserPermissions': 'dbo.SaveUserPermissions'
-      
+        // DEPRECATED — replaced by nt_user_permissions_json JSON-column storage below.
+        // 'saveUserPermissions': 'dbo.SaveUserPermissions'
     };
 
     this.updateProcedureMap = {
@@ -75,6 +75,7 @@ class UserApprovalRepository {
             throw new Error(`Error fetching permission details: ${error.message}`);
         }
     }
+    /* DEPRECATED — replaced by saveUserPermissionsJson() below, which writes to nt_user_permissions_json.
     async saveUserPermissions(permissionData) {
         try {
             console.log(permissionData)
@@ -89,6 +90,9 @@ class UserApprovalRepository {
             throw new Error(`Error saving user permissions: ${error.message}`);
         }
     }
+    */
+    /* DEPRECATED — replaced by getUserScreensAndPermissionsJson() below, which reads from nt_user_permissions_json
+       via sp_nt_GetUserScreensAndPermissionsJson.
     async getUserScreensAndPermissions(ecno) {
       try {
           const storedProcedure = 'sp_nt_GetUserScreenPermissions';
@@ -98,7 +102,9 @@ class UserApprovalRepository {
           throw new Error(`Error fetching user screens and permissions: ${error.message}`);
       }
     }
+    */
 
+    /* DEPRECATED — replaced by getUserPermissionsJsonById() below, which reads from nt_user_permissions_json.
     // Fetch permissions by nt_sign_up_sno (used in PermissionManager for pre-population)
     async getUserPermissionsById(userId) {
         console.log(userId)
@@ -110,6 +116,68 @@ class UserApprovalRepository {
         console.log(error)
           throw new Error(`Error fetching user permissions by id: ${error.message}`);
       }
+    }
+    */
+
+    // ── nt_user_permissions_json — hierarchy + screen permissions stored as JSON columns ──
+    // All reads/writes go through stored procedures (sp_nt_*Json), matching the rest of this module's convention.
+
+    async saveUserPermissionsJson({ user_id, user_ecno, hierarchy, screens }) {
+        try {
+            const result = await this.#executeStoredProcedure('sp_nt_SaveUserPermissionsJson', {
+                user_id,
+                ecno: user_ecno ?? null,
+                hierarchy: hierarchy ?? [],
+                screens: screens ?? [],
+            });
+            return result[0];
+        } catch (error) {
+            throw new Error(`Error saving user permissions: ${error.message}`);
+        }
+    }
+
+    async getUserPermissionsJsonById(userId) {
+        try {
+            const result = await this.#executeStoredProcedure('sp_nt_GetUserPermissionsJson', { userId });
+            return result[0] ?? null;
+        } catch (error) {
+            throw new Error(`Error fetching user permissions by id: ${error.message}`);
+        }
+    }
+
+    async updateUserPermissionsJson(userId, { hierarchy, screens }) {
+        try {
+            const result = await this.#executeStoredProcedure('sp_nt_UpdateUserPermissionsJson', {
+                userId,
+                hierarchy: hierarchy ?? [],
+                screens: screens ?? [],
+            });
+            return result[0]?.rows_affected ?? 0;
+        } catch (error) {
+            throw new Error(`Error updating user permissions: ${error.message}`);
+        }
+    }
+
+    // Returns { rowsAffected, ecno } — ecno is the deleted row's ecno, needed so the
+    // controller can push a real-time "permissions revoked" event to that user's socket room.
+    async deleteUserPermissionsJson(userId) {
+        try {
+            const result = await this.#executeStoredProcedure('sp_nt_DeleteUserPermissionsJson', { userId });
+            return { rowsAffected: result[0]?.rows_affected ?? 0, ecno: result[0]?.ecno ?? null };
+        } catch (error) {
+            throw new Error(`Error deleting user permissions: ${error.message}`);
+        }
+    }
+
+    // Sidebar reader — builds the same flat row shape the old vw_UserPermissions-backed
+    // sp_nt_GetUserScreenPermissions returned, but sourced from nt_user_permissions_json.
+    async getUserScreensAndPermissionsJson(ecno) {
+        try {
+            const result = await this.#executeStoredProcedure('sp_nt_GetUserScreensAndPermissionsJson', { ecno });
+            return result;
+        } catch (error) {
+            throw new Error(`Error fetching user screens and permissions: ${error.message}`);
+        }
     }
 }
 

@@ -100,6 +100,8 @@ class UserApprovalController {
     }
   }
 
+  /* DEPRECATED — replaced by saveUserPermissionsJson / getUserPermissionsJson below
+     (nt_branch_permissions + nt_screen_permissions rows → single JSON-column row in nt_user_permissions_json).
   static async saveUserPermissions(req, res) {
     try {
       const permissionData = req.body;
@@ -135,7 +137,9 @@ class UserApprovalController {
       res.status(500).json({ success: false, error: error.message });
     }
   }
+  */
 
+  /* DEPRECATED — replaced by getUserScreensAndPermissionsJson below, sourced from nt_user_permissions_json.
   static async getUserScreensAndPermissions(req, res) {
     try {
       const ecno = req.params.ecno;
@@ -146,7 +150,23 @@ class UserApprovalController {
       res.status(500).json({ success: false, error: error.message });
     }
   }
+  */
 
+  // Sidebar / login menu — GET /get_user_screens_and_permisssions_json/:ecno
+  // Same response shape as the old handler ({ success, data: { companies, screens } }),
+  // reconstructed from the single nt_user_permissions_json row for this ecno.
+  static async getUserScreensAndPermissionsJson(req, res) {
+    try {
+      const ecno = req.params.ecno;
+      const data = await UserApprovalService.getUserScreensAndPermissionsJson(ecno);
+      const consolidatedData = await UserApprovalController.#consolidatePermissions(data);
+      res.json({ success: true, data: consolidatedData });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  /* DEPRECATED — replaced by getUserPermissionsJson below.
   // Returns permissions in the format expected by PermissionManager (UserRoleApprovalScreen)
   static async getUserPermissions(req, res) {
     try {
@@ -180,6 +200,169 @@ class UserApprovalController {
         divisions: Array.from(divisionsSet),
         branches: Array.from(branchesSet),
       });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+  */
+
+  // ── nt_user_permissions_json — hierarchy + screens/permissions stored as JSON columns ──
+
+  // Shared: screen_id -> screen_name lookup, used to turn stored screens_json back into
+  // the { screen_name: { permission_id: true } } shape PermissionManager expects.
+  static async #buildScreenNameMap() {
+    const screensList = await UserApprovalService.getScreensWithGroups();
+    return new Map((screensList ?? []).map((s) => [s.screen_id, s.screen_name]));
+  }
+
+  static #rowToPermissionsResponse(row, screenNameById) {
+    if (!row) {
+      return { success: true, exists: false, permissions: {}, companies: [], divisions: [], branches: [] };
+    }
+
+    const hierarchy = row.hierarchy_json ? JSON.parse(row.hierarchy_json) : [];
+    const screensData = row.screens_json ? JSON.parse(row.screens_json) : [];
+
+    const companiesSet = new Set();
+    const divisionsSet = new Set();
+    const branchesSet  = new Set();
+    for (const h of hierarchy) {
+      if (h.com_sno != null) companiesSet.add(String(h.com_sno));
+      if (h.div_sno != null) divisionsSet.add(String(h.div_sno));
+      if (h.brn_sno != null) branchesSet.add(String(h.brn_sno));
+    }
+
+    const permissions = {};
+    for (const s of screensData) {
+      const screenName = screenNameById.get(s.screen_id);
+      if (!screenName) continue;
+      permissions[screenName] = {};
+      for (const permId of s.permissions ?? []) {
+        permissions[screenName][permId] = true;
+      }
+    }
+
+    return {
+      success: true,
+      exists: true,
+      permissions,
+      companies: Array.from(companiesSet),
+      divisions: Array.from(divisionsSet),
+      branches: Array.from(branchesSet),
+    };
+  }
+
+  // Create — POST /save_user_permissions_json
+  static async saveUserPermissionsJson(req, res) {
+    try {
+      const { user_id, user_ecno, hierarchy, screens } = req.body;
+      if (!user_id) {
+        return res.status(400).json({ success: false, error: "user_id is required" });
+      }
+
+      await UserApprovalService.saveUserPermissionsJson({ user_id, user_ecno, hierarchy, screens });
+
+      await invalidateCache(req.redisClient, "ua:permissions");
+      if (user_ecno) await invalidateCache(req.redisClient, `ua:user_screens:${user_ecno}`);
+      await invalidateCache(req.redisClient, `ua:user_perms:${user_id}`);
+
+      if (req.io) {
+        if (user_ecno) {
+          req.io.to(`user:${user_ecno}`).emit("permissions:updated", {
+            message: "Your permissions have been updated by an administrator",
+            timestamp: new Date().toISOString(),
+          });
+        }
+        req.io.emit("admin:permissions:updated", {
+          user_id:   user_id ?? null,
+          user_ecno: user_ecno ?? null,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      res.json({ success: true, message: "Permissions saved successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // Read — GET /get_user_permissions_json/:userId
+  // Returns permissions in the same format the old getUserPermissions returned.
+  static async getUserPermissionsJson(req, res) {
+    try {
+      const userId = req.params.userId;
+      const [row, screenNameById] = await Promise.all([
+        UserApprovalService.getUserPermissionsJsonById(userId),
+        UserApprovalController.#buildScreenNameMap(),
+      ]);
+
+      res.json(UserApprovalController.#rowToPermissionsResponse(row, screenNameById));
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // Update — PUT /update_user_permissions_json/:userId
+  static async updateUserPermissionsJson(req, res) {
+    try {
+      const userId = req.params.userId;
+      const { hierarchy, screens, user_ecno } = req.body;
+
+      const rowsAffected = await UserApprovalService.updateUserPermissionsJson(userId, { hierarchy, screens });
+      if (!rowsAffected) {
+        return res.status(404).json({ success: false, error: "No existing permissions record found for this user — use save_user_permissions_json to create one" });
+      }
+
+      await invalidateCache(req.redisClient, "ua:permissions");
+      if (user_ecno) await invalidateCache(req.redisClient, `ua:user_screens:${user_ecno}`);
+      await invalidateCache(req.redisClient, `ua:user_perms:${userId}`);
+
+      if (req.io) {
+        if (user_ecno) {
+          req.io.to(`user:${user_ecno}`).emit("permissions:updated", {
+            message: "Your permissions have been updated by an administrator",
+            timestamp: new Date().toISOString(),
+          });
+        }
+        req.io.emit("admin:permissions:updated", {
+          user_id:   userId ?? null,
+          user_ecno: user_ecno ?? null,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      res.json({ success: true, message: "Permissions updated successfully" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // Delete — DELETE /delete_user_permissions_json/:userId
+  static async deleteUserPermissionsJson(req, res) {
+    try {
+      const userId = req.params.userId;
+      const { rowsAffected, ecno } = await UserApprovalService.deleteUserPermissionsJson(userId);
+
+      await invalidateCache(req.redisClient, "ua:permissions");
+      await invalidateCache(req.redisClient, `ua:user_perms:${userId}`);
+      if (ecno) await invalidateCache(req.redisClient, `ua:user_screens:${ecno}`);
+
+      if (req.io) {
+        // Push to the revoked user immediately — their sidebar re-fetches and goes empty in real time.
+        if (ecno) {
+          req.io.to(`user:${ecno}`).emit("permissions:updated", {
+            message: "Your permissions have been revoked by an administrator",
+            timestamp: new Date().toISOString(),
+          });
+        }
+        req.io.emit("admin:permissions:updated", {
+          user_id:   userId ?? null,
+          user_ecno: ecno   ?? null,
+          timestamp: new Date().toISOString(),
+        });
+      }
+
+      res.json({ success: true, message: rowsAffected ? "Permissions deleted successfully" : "No record found", deletedCount: rowsAffected });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }
