@@ -142,7 +142,7 @@ class PurchaseTeamController {
         : null;
       if (!file) return res.status(400).json({ success: false, error: "po_pdf file is required" });
 
-      const { vendor_sno, po_no, po_date, required_date, terms_conditions, delivery_address } = req.body;
+      const { vendor_sno, po_no, po_date, required_date, terms_conditions, delivery_address, po_basic_sno } = req.body;
       if (!vendor_sno || !po_no) {
         return res.status(400).json({ success: false, error: "vendor_sno and po_no are required" });
       }
@@ -164,6 +164,7 @@ class PurchaseTeamController {
         items,
         pdfBuffer: file.buffer,
         pdfFilename: file.originalname || `${po_no}.pdf`,
+        po_basic_sno: po_basic_sno ? Number(po_basic_sno) : undefined,
       });
 
       res.json({ success: true, data, message: "Purchase Order emailed to supplier" });

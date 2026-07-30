@@ -35,8 +35,35 @@ class KYCServices {
   static kycRepository = new KYCRepo();
 
   static async createKYCRecord(data) {
-    return this.kycRepository.createKYCRecord(data);
+    const { orgMappings, ...kycPayload } = data;
+
+    if (Array.isArray(orgMappings) && orgMappings.length > 0) {
+      const invalid = await this.kycRepository.validateOrgMappings(orgMappings);
+      if (invalid.length > 0) {
+        const error = new Error(
+          `These company/division/branch/department selections don't form a real combination: ${invalid
+            .map((m) => `com ${m.com_sno} / div ${m.div_sno} / branch ${m.brn_sno} / dept ${m.dept_sno}`)
+            .join("; ")}`
+        );
+        error.statusCode = 400;
+        throw error;
+      }
+    }
+
+    const result = await this.kycRepository.createKYCRecord(kycPayload);
+    const kycBasicInfoSno = result?.kyc_basic_info_sno;
+
+    if (kycBasicInfoSno && Array.isArray(orgMappings) && orgMappings.length > 0) {
+      await this.kycRepository.createKYCOrgMappings(kycBasicInfoSno, orgMappings, kycPayload.created_by);
+    }
+
+    return result;
   }
+
+  static getKYCOrgMappings(kycBasicInfoSno) {
+    return this.kycRepository.getKYCOrgMappings(kycBasicInfoSno);
+  }
+
   static getAllKycRecord() {
     return this.kycRepository.getAllKYCRecords();
   }

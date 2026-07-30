@@ -95,6 +95,20 @@ class PurchaseTeamRepository {
     }
   }
 
+  // Persists the FTP URL of the emailed PO PDF against its po_request_info row.
+  async savePOPdfUrl(po_basic_sno, url) {
+    try {
+      const request = mssqlPool.request();
+      request.input("po_basic_sno", mssql.Int, po_basic_sno);
+      request.input("url", mssql.NVarChar(500), url);
+      await request.query(
+        `UPDATE po_request_info SET po_pdf_url = @url WHERE po_basic_sno = @po_basic_sno`
+      );
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
   // ── UPDATE ITEM QUANTITY ────────────────────────────────────────────────
   async updateItemQuantity(updateData) {
     return this.executeStoredProcedure("sp_nt_UpdatePOItemQuantity", updateData);
@@ -154,8 +168,10 @@ class PurchaseTeamRepository {
   }
 
   // ── DRAFT OPERATIONS (Redis) ────────────────────────────────────────────
+  // Redis integration commented out — will be reintegrated later.
 
   async saveQuotationDraft(redisClient, ecno, draftData) {
+    if (!redisClient) return null;
     const draftId = randomUUID();
     const key = `purchase_team:quotation_draft:${ecno}:${draftId}`;
     const indexKey = `purchase_team:quotation_drafts:${ecno}`;
@@ -176,6 +192,7 @@ class PurchaseTeamRepository {
   }
 
   async getQuotationDrafts(redisClient, ecno) {
+    if (!redisClient) return [];
     const indexKey = `purchase_team:quotation_drafts:${ecno}`;
     const draftIds = await redisClient.sMembers(indexKey);
     if (!draftIds || draftIds.length === 0) return [];
@@ -198,6 +215,7 @@ class PurchaseTeamRepository {
   }
 
   async deleteQuotationDraft(redisClient, ecno, draftId) {
+    if (!redisClient) return false;
     const key = `purchase_team:quotation_draft:${ecno}:${draftId}`;
     const indexKey = `purchase_team:quotation_drafts:${ecno}`;
     const deleted = await redisClient.del(key);

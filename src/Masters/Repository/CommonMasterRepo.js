@@ -24,7 +24,8 @@ class CommonMasterRepo {
             'ProductSubCategoryMaster': "sp_product_sub_catagory",
             "WorkflowMaster": "sp_nt_GetWorkflowMaster",
             "SupplierCatagoryMaster": "usp_GetSupplierCategoryRecords",
-            "BusinessDetailsMatster": "sp_Get_Business_Details"
+            "BusinessDetailsMatster": "sp_Get_Business_Details",
+            "TransportMaster": "sp_nt_GetTransportRecords"
         };
 
         this.createProcedureMap = {
@@ -40,7 +41,8 @@ class CommonMasterRepo {
             'ScreenMaster': 'sp_nt_CreateScreenRecords',
             'ScreenPermission': 'sp_nt_CreatePermissionRecords',
             'ProductMaster': 'sp_nt_CreateProductRecord',
-            "WorkflowMaster": "sp_nt_CreateWorkflowMaster"
+            "WorkflowMaster": "sp_nt_CreateWorkflowMaster",
+            "TransportMaster": "sp_nt_CreateTransportRecords"
         };
 
         this.updateProcedureMap = {
@@ -49,6 +51,8 @@ class CommonMasterRepo {
             'employee': 'sp_nt_UpdateEmployeeRecords',
             'role': 'sp_nt_UpdateRoleRecords',
             'location': 'sp_nt_UpdateLocationRecords',
+            // lowercase key: updateCommonMaster looks up with masterField.toLowerCase()
+            'transportmaster': 'sp_nt_UpdateTransportRecords',
         };
 
         this.deleteProcedureMap = {
@@ -57,6 +61,8 @@ class CommonMasterRepo {
             'employee': 'sp_nt_DeleteEmployeeRecords',
             'role': 'sp_nt_DeleteRoleRecords',
             'location': 'sp_nt_DeleteLocationRecords',
+            // lowercase key: deleteCommonMaster looks up with masterField.toLowerCase()
+            'transportmaster': 'sp_nt_DeleteTransportRecords',
         };
         this.fieldMappings = {
         'CompanyMaster': { label: 'com_name', value: 'com_sno' },
@@ -71,6 +77,7 @@ class CommonMasterRepo {
         'ProductMaster': { label: 'prod_name', value: 'prod_sno' },
         'CategoryMaster': { label: 'cat_name', value: 'cat_sno' },
         'SubCategoryMaster': { label: 'subcat_name', value: 'subcat_sno' },
+        'TransportMaster': { label: 'transport_name', value: 'transport_sno' },
     };
 
     }

@@ -5,9 +5,10 @@ import compression from "compression";
 import { createServer } from "node:http";
 import { Server } from "socket.io";
 import session from "express-session";
-import { RedisStore } from "connect-redis";
-import { createClient } from "redis";
-import { createAdapter } from "@socket.io/redis-adapter";
+// Redis integration commented out — will be reintegrated later.
+// import { RedisStore } from "connect-redis";
+// import { createClient } from "redis";
+// import { createAdapter } from "@socket.io/redis-adapter";
 import cookieParser from "cookie-parser";
 import { configDotenv } from "dotenv";
 import swaggerUi from "swagger-ui-express";
@@ -41,53 +42,56 @@ app.set("trust proxy", 1); // behind API gateway — real client IP for rate lim
 // ----------------------------
 // REDIS SETUP
 // ----------------------------
-const redisClient = createClient({
-    socket: {
-        host: process.env.REDIS_HOST || "localhost",
-        port: parseInt(process.env.REDIS_PORT || "6379"),
-        reconnectStrategy: (retries) => {
-            if (retries > 10) return new Error("Redis connection failed after 10 retries");
-            return Math.min(retries * 50, 500);
-        },
-    },
-    // password: process.env.REDIS_PASSWORD,
-});
-
-redisClient.on("error", (err) => console.error("Redis Client Error:", err));
-redisClient.on("connect", () => console.log("Redis Client Connected"));
-await redisClient.connect();
-console.log("Redis Client:", redisClient);
-
-// Pub/Sub clients for Socket.IO adapter
-const pubClient = redisClient.duplicate();
-const subClient = redisClient.duplicate();
-await Promise.all([pubClient.connect(), subClient.connect()]);
+// Redis integration commented out — will be reintegrated later.
+// const redisClient = createClient({
+//     socket: {
+//         host: process.env.REDIS_HOST || "localhost",
+//         port: parseInt(process.env.REDIS_PORT || "6379"),
+//         reconnectStrategy: (retries) => {
+//             if (retries > 10) return new Error("Redis connection failed after 10 retries");
+//             return Math.min(retries * 50, 500);
+//         },
+//     },
+//     // password: process.env.REDIS_PASSWORD,
+// });
+//
+// redisClient.on("error", (err) => console.error("Redis Client Error:", err));
+// redisClient.on("connect", () => console.log("Redis Client Connected"));
+// await redisClient.connect();
+// console.log("Redis Client:", redisClient);
+//
+// // Pub/Sub clients for Socket.IO adapter
+// const pubClient = redisClient.duplicate();
+// const subClient = redisClient.duplicate();
+// await Promise.all([pubClient.connect(), subClient.connect()]);
+const redisClient = null;
 
 // ----------------------------
-// SOCKET.IO WITH REDIS ADAPTER
+// SOCKET.IO (in-memory adapter — Redis adapter commented out, will be reintegrated later)
 // ----------------------------
 const io = new Server(server, {
     cors: {
         origin: process.env.CLIENT_URL,
         credentials: true,
     },
-    adapter: createAdapter(pubClient, subClient),
+    // adapter: createAdapter(pubClient, subClient),
 });
 
+// Redis integration commented out — will be reintegrated later.
 // Separate subscriber: bridges grn-service (stateless, no Socket.IO of its
 // own) into this process's `io` instance. grn-service publishes
 // { room, event, payload } JSON on "socket:broadcast" whenever GRN/Gate
 // Entry/Inventory data changes; we just re-emit it to the target room.
-const appSubClient = redisClient.duplicate();
-await appSubClient.connect();
-await appSubClient.subscribe("socket:broadcast", (message) => {
-    try {
-        const { room, event, payload } = JSON.parse(message);
-        if (room && event) io.to(room).emit(event, payload);
-    } catch (err) {
-        console.error("socket:broadcast message error:", err.message);
-    }
-});
+// const appSubClient = redisClient.duplicate();
+// await appSubClient.connect();
+// await appSubClient.subscribe("socket:broadcast", (message) => {
+//     try {
+//         const { room, event, payload } = JSON.parse(message);
+//         if (room && event) io.to(room).emit(event, payload);
+//     } catch (err) {
+//         console.error("socket:broadcast message error:", err.message);
+//     }
+// });
 
 // Socket.IO: load the express session from the cookie so socket.request.session.jwt is available
 io.use((socket, next) => {
@@ -199,15 +203,15 @@ app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
 
 // ----------------------------
-// SESSION WITH REDIS STORE
+// SESSION (in-memory store — Redis store commented out, will be reintegrated later)
 // ----------------------------
 app.use(cookieParser());
 const sessionMiddleware = session({
-    store: new RedisStore({
-        client: redisClient,
-        prefix: "sess:",
-        ttl: 7200, // 2 hours max in Redis (inactivity timeout is 30 min server-side)
-    }),
+    // store: new RedisStore({
+    //     client: redisClient,
+    //     prefix: "sess:",
+    //     ttl: 7200, // 2 hours max in Redis (inactivity timeout is 30 min server-side)
+    // }),
     secret: process.env.SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
@@ -249,7 +253,7 @@ app.use(
 
 // Public health check (probed by the API gateway)
 app.get("/health", (_req, res) =>
-    res.json({ status: "ok", timestamp: new Date().toISOString(), redis: redisClient.isReady ? "connected" : "disconnected", docs: "/api-docs" })
+    res.json({ status: "ok", timestamp: new Date().toISOString(), docs: "/api-docs" })
 );
 
 // ----------------------------
@@ -302,7 +306,8 @@ app.use((req, res) => {
 // ----------------------------
 async function shutdown() {
     console.log("Shutting down server...");
-    await Promise.all([redisClient.quit(), pubClient.quit(), subClient.quit(), appSubClient.quit()]);
+    // Redis integration commented out — will be reintegrated later.
+    // await Promise.all([redisClient.quit(), pubClient.quit(), subClient.quit(), appSubClient.quit()]);
     server.close(() => {
         console.log("HTTP server closed");
         process.exit(0);

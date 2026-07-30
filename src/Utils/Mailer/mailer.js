@@ -146,23 +146,12 @@ function buildPOGeneratedEmail({ to, companyName, poNo, poDate, requiredDate, it
     `PO Number: ${poNo}\n` +
     `PO Date: ${poDate}\n` +
     `Required By: ${requiredDate}\n\n` +
-    `Items:\n${itemLines}\n\n` +
-    `Total Amount: ${totalAmount}\n` +
-    (termsConditions ? `Terms & Conditions: ${termsConditions}\n` : "") +
-    (deliveryAddress ? `Delivery Address: ${deliveryAddress}\n` : "") +
-    `\nLog in to the supplier portal to view full details: ${portalUrl}\n`;
+   
+    (deliveryAddress ? `\nDelivery Address: ${deliveryAddress}\n` : "") +
+    (termsConditions ? `\nTerms & Conditions: ${termsConditions}\n` : "") +
+    `\nThe full PO is attached as a PDF. Log in to the supplier portal to view it online: ${portalUrl}\n`;
 
-  const itemRows = items
-    .map(
-      (it) => `
-                <tr>
-                  <td style="padding:10px 12px; border-bottom:1px solid #e2e8f0; color:#0f172a; font-size:13px;">${esc(it.prod_name)}</td>
-                  <td style="padding:10px 12px; border-bottom:1px solid #e2e8f0; color:#475569; font-size:13px; text-align:right;">${esc(it.qty)} ${esc(it.unit_name || "")}</td>
-                  <td style="padding:10px 12px; border-bottom:1px solid #e2e8f0; color:#475569; font-size:13px; text-align:right;">${esc(it.unit_price)}</td>
-                  <td style="padding:10px 12px; border-bottom:1px solid #e2e8f0; color:#0f172a; font-size:13px; text-align:right; font-weight:600;">${esc(it.total_amount)}</td>
-                </tr>`
-    )
-    .join("");
+
 
   const html = `<!DOCTYPE html>
 <html lang="en">
@@ -171,65 +160,78 @@ function buildPOGeneratedEmail({ to, companyName, poNo, poDate, requiredDate, it
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Purchase Order ${esc(poNo)}</title>
 </head>
-<body style="margin:0; padding:0; background-color:#f4f5f7; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
-  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f4f5f7; padding:24px 0;">
+<body style="margin:0; padding:0; background-color:#eef1f6; font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif;">
+  <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#eef1f6; padding:32px 0;">
     <tr>
       <td align="center">
-        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:620px; background-color:#ffffff; border-radius:12px; overflow:hidden; box-shadow:0 1px 3px rgba(0,0,0,0.08);">
+        <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:640px; background-color:#ffffff; border-radius:14px; overflow:hidden; box-shadow:0 4px 16px rgba(15,23,42,0.08);">
           <tr>
-            <td style="background-color:#0f172a; padding:28px 32px;">
-              <h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:600; letter-spacing:0.2px;">Purchase Order Generated</h1>
+            <td style="background:linear-gradient(135deg,#0f172a 0%,#1e3a8a 100%); padding:32px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                  <td>
+                    <span style="display:inline-block; background-color:rgba(255,255,255,0.12); color:#93c5fd; font-size:11px; font-weight:700; text-transform:uppercase; letter-spacing:0.8px; padding:5px 10px; border-radius:999px; margin-bottom:12px;">New Purchase Order</span>
+                    <h1 style="margin:6px 0 4px; color:#ffffff; font-size:22px; font-weight:700; letter-spacing:0.2px;">${esc(poNo)}</h1>
+                    <p style="margin:0; color:#cbd5e1; font-size:13px;">Issued ${esc(poDate)}</p>
+                  </td>
+                </tr>
+              </table>
             </td>
           </tr>
           <tr>
             <td style="padding:32px;">
               <p style="margin:0 0 16px; color:#0f172a; font-size:16px;">Hello ${esc(companyName)},</p>
               <p style="margin:0 0 24px; color:#475569; font-size:15px; line-height:1.6;">
-                A new Purchase Order has been generated for you. Details are below.
+                A new purchase order has been generated for you. Please review the details below and the attached PDF, and fulfil the order by the required date.
               </p>
 
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:8px; margin-bottom:24px;">
+              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
                 <tr>
-                  <td style="padding:14px 20px; border-bottom:1px solid #e2e8f0; width:50%;">
-                    <div style="color:#64748b; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">PO Number</div>
-                    <div style="color:#0f172a; font-size:16px; font-weight:600; font-family:'Courier New',monospace;">${esc(poNo)}</div>
+                  <td width="50%" style="padding:16px 18px; background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:10px 0 0 10px; border-right:none;">
+                    <div style="color:#64748b; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Required By</div>
+                    <div style="color:#0f172a; font-size:17px; font-weight:700;">${esc(requiredDate)}</div>
                   </td>
-                  <td style="padding:14px 20px; border-bottom:1px solid #e2e8f0;">
-                    <div style="color:#64748b; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">PO Date</div>
-                    <div style="color:#0f172a; font-size:16px; font-weight:600;">${esc(poDate)}</div>
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:14px 20px;">
-                    <div style="color:#64748b; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Required By</div>
-                    <div style="color:#0f172a; font-size:16px; font-weight:600;">${esc(requiredDate)}</div>
-                  </td>
-                  <td style="padding:14px 20px;">
-                    <div style="color:#64748b; font-size:12px; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:4px;">Total Amount</div>
-                    <div style="color:#0f172a; font-size:16px; font-weight:600;">${esc(totalAmount)}</div>
+                  <td width="50%" style="padding:16px 18px; background-color:#eff6ff; border:1px solid #bfdbfe; border-radius:0 10px 10px 0;">
+                    <div style="color:#1d4ed8; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Total Amount</div>
+                    <div style="color:#1e3a8a; font-size:17px; font-weight:700;">${esc(totalAmount)}</div>
                   </td>
                 </tr>
               </table>
 
-              <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e2e8f0; border-radius:8px; margin-bottom:24px; border-collapse:collapse;">
-                <thead>
-                  <tr style="background-color:#f8fafc;">
-                    <th style="padding:10px 12px; text-align:left; color:#64748b; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Item</th>
-                    <th style="padding:10px 12px; text-align:right; color:#64748b; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Qty</th>
-                    <th style="padding:10px 12px; text-align:right; color:#64748b; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Rate</th>
-                    <th style="padding:10px 12px; text-align:right; color:#64748b; font-size:11px; text-transform:uppercase; letter-spacing:0.5px;">Amount</th>
-                  </tr>
-                </thead>
-                <tbody>${itemRows}</tbody>
-              </table>
+           
+              ${
+                deliveryAddress || termsConditions
+                  ? `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="margin-bottom:24px;">
+                <tr>
+                  ${
+                    deliveryAddress
+                      ? `<td valign="top" width="${termsConditions ? "50%" : "100%"}" style="padding:16px 18px; background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;${termsConditions ? " margin-right:12px;" : ""}">
+                    <div style="color:#64748b; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Delivery Address</div>
+                    <div style="color:#334155; font-size:14px; line-height:1.5;">${esc(deliveryAddress)}</div>
+                  </td>${termsConditions ? `<td width="12"></td>` : ""}`
+                      : ""
+                  }
+                  ${
+                    termsConditions
+                      ? `<td valign="top" width="${deliveryAddress ? "50%" : "100%"}" style="padding:16px 18px; background-color:#f8fafc; border:1px solid #e2e8f0; border-radius:10px;">
+                    <div style="color:#64748b; font-size:11px; font-weight:600; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px;">Terms & Conditions</div>
+                    <div style="color:#334155; font-size:14px; line-height:1.5;">${esc(termsConditions)}</div>
+                  </td>`
+                      : ""
+                  }
+                </tr>
+              </table>`
+                  : ""
+              }
 
-              ${termsConditions ? `<p style="margin:0 0 12px; color:#475569; font-size:13px; line-height:1.6;"><strong>Terms &amp; Conditions:</strong> ${esc(termsConditions)}</p>` : ""}
-              ${deliveryAddress ? `<p style="margin:0 0 24px; color:#475569; font-size:13px; line-height:1.6;"><strong>Delivery Address:</strong> ${esc(deliveryAddress)}</p>` : ""}
+              <p style="margin:0 0 20px; color:#64748b; font-size:13px; line-height:1.6;">
+                The full purchase order is attached as a PDF to this email.
+              </p>
 
-              <table role="presentation" cellpadding="0" cellspacing="0" style="margin-bottom:8px;">
+              <table role="presentation" cellpadding="0" cellspacing="0">
                 <tr>
                   <td style="border-radius:8px; background-color:#2563eb;">
-                    <a href="${esc(portalUrl)}" target="_blank" style="display:inline-block; padding:12px 28px; color:#ffffff; font-size:15px; font-weight:600; text-decoration:none; border-radius:8px;">View in Supplier Portal</a>
+                    <a href="${esc(portalUrl)}" target="_blank" style="display:inline-block; padding:13px 30px; color:#ffffff; font-size:15px; font-weight:600; text-decoration:none; border-radius:8px;">View in Supplier Portal</a>
                   </td>
                 </tr>
               </table>

@@ -18,11 +18,14 @@ export async function createNotification(redisClient, io, { ecno, type = "info",
     data,
   };
 
-  const key = NOTIF_KEY(ecno);
-  // Push to head; cap list
-  await redisClient.lPush(key, JSON.stringify(notif));
-  await redisClient.lTrim(key, 0, MAX_NOTIFS - 1);
-  await redisClient.expire(key, 60 * 60 * 24 * 7); // 7 days TTL
+  // Redis integration commented out — will be reintegrated later.
+  if (redisClient) {
+    const key = NOTIF_KEY(ecno);
+    // Push to head; cap list
+    await redisClient.lPush(key, JSON.stringify(notif));
+    await redisClient.lTrim(key, 0, MAX_NOTIFS - 1);
+    await redisClient.expire(key, 60 * 60 * 24 * 7); // 7 days TTL
+  }
 
   // Emit in real-time via Socket.IO to user room
   if (io) {
@@ -36,6 +39,7 @@ export async function createNotification(redisClient, io, { ecno, type = "info",
  * Get all notifications for a user from Redis.
  */
 export async function getNotifications(redisClient, ecno) {
+  if (!redisClient) return [];
   const raw = await redisClient.lRange(NOTIF_KEY(ecno), 0, -1);
   return raw.map((s) => JSON.parse(s));
 }
@@ -44,6 +48,7 @@ export async function getNotifications(redisClient, ecno) {
  * Mark a single notification as read.
  */
 export async function markAsRead(redisClient, ecno, notifId) {
+  if (!redisClient) return null;
   const key  = NOTIF_KEY(ecno);
   const raw  = await redisClient.lRange(key, 0, -1);
   const list = raw.map((s) => JSON.parse(s));
@@ -61,6 +66,7 @@ export async function markAsRead(redisClient, ecno, notifId) {
  * Mark all notifications as read for a user.
  */
 export async function markAllAsRead(redisClient, ecno) {
+  if (!redisClient) return [];
   const key  = NOTIF_KEY(ecno);
   const raw  = await redisClient.lRange(key, 0, -1);
   const list = raw.map((s) => JSON.parse(s));
@@ -80,6 +86,7 @@ export async function markAllAsRead(redisClient, ecno) {
  * Delete all notifications for a user.
  */
 export async function clearNotifications(redisClient, ecno) {
+  if (!redisClient) return;
   await redisClient.del(NOTIF_KEY(ecno));
 }
 
@@ -87,6 +94,7 @@ export async function clearNotifications(redisClient, ecno) {
  * Unread count helper.
  */
 export async function getUnreadCount(redisClient, ecno) {
+  if (!redisClient) return 0;
   const raw  = await redisClient.lRange(NOTIF_KEY(ecno), 0, -1);
   return raw.map((s) => JSON.parse(s)).filter((n) => !n.read).length;
 }

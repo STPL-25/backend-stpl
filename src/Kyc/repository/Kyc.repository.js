@@ -240,6 +240,84 @@ class KYCRepo {
       throw new Error(`Database error: ${error.message}`);
     }
   }
+
+  // Returns the subset of `mappings` whose {com_sno, div_sno, brn_sno, dept_sno} does NOT
+  // form a real chain in the masters (i.e. the department doesn't actually belong to that
+  // branch/division/company). An empty array means every mapping is valid. This is what
+  // stops a client from saving a nonsensical combination — e.g. a branch from one company
+  // paired with a department from another.
+  async validateOrgMappings(mappings) {
+    if (!Array.isArray(mappings) || mappings.length === 0) return [];
+    const invalid = [];
+    for (const m of mappings) {
+      try {
+        const request = mssqlPool.request();
+        request.input('com_sno', mssql.Int, m.com_sno);
+        request.input('div_sno', mssql.Int, m.div_sno);
+        request.input('brn_sno', mssql.Int, m.brn_sno);
+        request.input('dept_sno', mssql.Int, m.dept_sno);
+        const result = await request.query(`
+          SELECT d.dept_sno
+          FROM dept_master d
+          JOIN branch_master b   ON b.brn_sno = d.brn_sno
+          JOIN division_master v ON v.div_sno = b.div_sno
+          WHERE d.dept_sno = @dept_sno
+            AND d.brn_sno  = @brn_sno
+            AND b.div_sno  = @div_sno
+            AND v.com_sno  = @com_sno
+            AND d.is_active = 'Y' AND b.is_active = 'Y' AND v.is_active = 'Y'
+        `);
+        if (result.recordset.length === 0) invalid.push(m);
+      } catch (error) {
+        invalid.push(m);
+      }
+    }
+    return invalid;
+  }
+
+  // One row per {com_sno, div_sno, brn_sno, dept_sno} mapping — never a cross-join of
+  // independently selected companies/divisions/branches/departments.
+  async createKYCOrgMappings(kycBasicInfoSno, mappings, createdBy) {
+    if (!Array.isArray(mappings) || mappings.length === 0) return [];
+    const inserted = [];
+    for (const m of mappings) {
+      const request = mssqlPool.request();
+      request.input('kyc_basic_info_sno', mssql.Int, kycBasicInfoSno);
+      request.input('com_sno', mssql.Int, m.com_sno);
+      request.input('div_sno', mssql.Int, m.div_sno);
+      request.input('brn_sno', mssql.Int, m.brn_sno);
+      request.input('dept_sno', mssql.Int, m.dept_sno);
+      request.input('is_primary', mssql.Char(1), m.is_primary ? 'Y' : 'N');
+      request.input('created_by', mssql.NVarChar(50), createdBy || '');
+      const result = await request.query(`
+        INSERT INTO kyc_cmp_info
+          (kyc_basic_info_sno, com_sno, div_sno, brn_sno, dept_sno, is_primary, created_by, created_date, is_active)
+        OUTPUT INSERTED.kyc_cmp_sno
+        VALUES
+          (@kyc_basic_info_sno, @com_sno, @div_sno, @brn_sno, @dept_sno, @is_primary, @created_by, GETDATE(), 'Y')
+      `);
+      inserted.push(result.recordset[0]);
+    }
+    return inserted;
+  }
+
+  async getKYCOrgMappings(kycBasicInfoSno) {
+    const request = mssqlPool.request();
+    request.input('kyc_basic_info_sno', mssql.Int, kycBasicInfoSno);
+    const result = await request.query(`
+      SELECT
+        k.kyc_cmp_sno, k.com_sno, k.div_sno, k.brn_sno, k.dept_sno, k.is_primary,
+        c.com_name, v.div_name, b.brn_name, d.dept_name
+      FROM kyc_cmp_info k
+      JOIN company_master  c ON c.com_sno = k.com_sno
+      JOIN division_master v ON v.div_sno = k.div_sno
+      JOIN branch_master   b ON b.brn_sno = k.brn_sno
+      JOIN dept_master     d ON d.dept_sno = k.dept_sno
+      WHERE k.kyc_basic_info_sno = @kyc_basic_info_sno AND k.is_active = 'Y'
+      ORDER BY k.is_primary DESC, k.kyc_cmp_sno
+    `);
+    return result.recordset;
+  }
 }
 
 export default KYCRepo;

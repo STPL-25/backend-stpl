@@ -1,8 +1,12 @@
 import PurchaseTeamRepository from "../repository/PurchaseTeam.repository.js";
 import { sendMail, buildPOGeneratedEmail } from "../../Utils/Mailer/mailer.js";
+import { ftpUploader } from "../../Utils/ImagesUpload/ImgUpload.js";
+import { nanoid } from "nanoid";
 
 const SUPPLIER_PORTAL_URL =
   process.env.SUPPLIER_PORTAL_URL || "http://localhost:5173/supplier";
+
+const PO_PDF_SUBDIRECTORY = "NON_TRADE_DATAS/PO_DATAS";
 
 class PurchaseTeamService {
   static repo = new PurchaseTeamRepository();
@@ -45,11 +49,20 @@ class PurchaseTeamService {
     items,
     pdfBuffer,
     pdfFilename,
+    po_basic_sno,
   }) {
+    let po_pdf_url;
+    try {
+      po_pdf_url = await this.storePOPdf({ po_basic_sno, po_no, pdfBuffer, pdfFilename });
+    } catch (error) {
+      // Storage failure must not block the email that follows.
+      console.error("PO PDF storage failed:", error.message);
+    }
+
     try {
       const contact = await this.repo.getVendorContact(vendor_sno);
       if (!contact?.email) {
-        return { emailSent: false, reason: "No email on the vendor's KYC record" };
+        return { emailSent: false, reason: "No email on the vendor's KYC record", po_pdf_url };
       }
 
       const safeItems = Array.isArray(items) ? items : [];
@@ -77,11 +90,35 @@ class PurchaseTeamService {
 console.log("Sending PO email with message:", message);
       const mailResult = await sendMail(message);
 
-      return { emailSent: mailResult.sent, login_email: contact.email };
+      return { emailSent: mailResult.sent, login_email: contact.email, po_pdf_url };
     } catch (error) {
       console.error("PO email failed:", error.message);
-      return { emailSent: false, reason: error.message };
+      return { emailSent: false, reason: error.message, po_pdf_url };
     }
+  }
+
+  // Uploads the PO PDF to FTP and, when the caller knows which PO row this
+  // belongs to (final-approval flow), persists the URL onto po_request_info
+  // so the supplier portal can offer it as a download.
+  static async storePOPdf({ po_basic_sno, po_no, pdfBuffer, pdfFilename }) {
+    if (!pdfBuffer) return undefined;
+
+    const extension = (pdfFilename || "").split(".").pop() || "pdf";
+    const uniqueFileName = `${po_no}_${nanoid(8)}.${extension}`;
+
+    const result = await ftpUploader.uploadFile(pdfBuffer, uniqueFileName, PO_PDF_SUBDIRECTORY);
+    if (!result.success) {
+      console.error("PO PDF FTP upload failed:", result.message);
+      return undefined;
+    }
+
+    const url = `${process.env.SERVER_URL}/dwl/${PO_PDF_SUBDIRECTORY}/${uniqueFileName}`;
+
+    if (po_basic_sno) {
+      await this.repo.savePOPdfUrl(po_basic_sno, url);
+    }
+
+    return url;
   }
 
   static async updateItemQuantity(updateData) {

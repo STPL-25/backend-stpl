@@ -39,8 +39,10 @@ class GRNRepository {
   }
 
   // ── Draft Operations (Redis) ──────────────────────────────────────────────
+  // Redis integration commented out — will be reintegrated later.
 
   async saveGRNDraft(redisClient, ecno, draftData) {
+    if (!redisClient) return null;
     const draftId = randomUUID();
     const key = `grn:draft:${ecno}:${draftId}`;
     const indexKey = `grn:drafts:${ecno}`;
@@ -61,6 +63,7 @@ class GRNRepository {
   }
 
   async getGRNDrafts(redisClient, ecno) {
+    if (!redisClient) return [];
     const indexKey = `grn:drafts:${ecno}`;
     const draftIds = await redisClient.sMembers(indexKey);
     if (!draftIds || draftIds.length === 0) return [];
@@ -83,6 +86,7 @@ class GRNRepository {
   }
 
   async getGRNDraft(redisClient, ecno, draftId) {
+    if (!redisClient) return null;
     const key = `grn:draft:${ecno}:${draftId}`;
     const raw = await redisClient.get(key);
     if (!raw) return null;
@@ -90,6 +94,7 @@ class GRNRepository {
   }
 
   async updateGRNDraft(redisClient, ecno, draftId, draftData) {
+    if (!redisClient) return null;
     const key = `grn:draft:${ecno}:${draftId}`;
     const existing = await redisClient.get(key);
     if (!existing) return null;
@@ -109,6 +114,7 @@ class GRNRepository {
   }
 
   async deleteGRNDraft(redisClient, ecno, draftId) {
+    if (!redisClient) return false;
     const key = `grn:draft:${ecno}:${draftId}`;
     const indexKey = `grn:drafts:${ecno}`;
     const deleted = await redisClient.del(key);

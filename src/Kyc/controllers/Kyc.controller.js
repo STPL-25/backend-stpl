@@ -147,6 +147,19 @@ class KYCControllers {
       });
     } catch (error) {
       console.log(error)
+      res.status(error.statusCode ?? 500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async getKYCOrgMappings(req, res) {
+    try {
+      const kycId = Number(req.params.kycId);
+      if (!kycId) {
+        return res.status(400).json({ success: false, error: "kycId is required" });
+      }
+      const data = await KYCServices.getKYCOrgMappings(kycId);
+      res.json({ success: true, data });
+    } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }
   }

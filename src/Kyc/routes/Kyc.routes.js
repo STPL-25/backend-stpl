@@ -9,6 +9,7 @@ const Kycrouter = express.Router();
 Kycrouter.post("/create_kyc_records", upload.any(), KycController.createKYCRecord);
 
 Kycrouter.get('/get_all_kycs', cacheMiddleware("kyc:list", 120), KYCControllers.getAllKYCRecords)
+Kycrouter.get('/get_kyc_org_mappings/:kycId', KYCControllers.getKYCOrgMappings)
 // Kycrouter.get('/get_kyc_approvals', cacheMiddleware("kyc:list", 120), KYCControllers.getKycApproval)
 
 Kycrouter.get('/get_pending_approvals',  KYCControllers.getPendingApprovals)

@@ -74,8 +74,10 @@ class PRRepository {
   }
 
   // ── DRAFT OPERATIONS (Redis) ──────────────────────────────────────────────
+  // Redis integration commented out — will be reintegrated later.
 
   async saveDraft(redisClient, ecno, draftData) {
+    if (!redisClient) return null;
     const draftId = randomUUID();
     const key = `pr:draft:${ecno}:${draftId}`;
     const indexKey = `pr:drafts:${ecno}`;
@@ -96,6 +98,7 @@ class PRRepository {
   }
 
   async getDrafts(redisClient, ecno) {
+    if (!redisClient) return [];
     const indexKey = `pr:drafts:${ecno}`;
     const draftIds = await redisClient.sMembers(indexKey);
 
@@ -119,6 +122,7 @@ class PRRepository {
   }
 
   async getDraft(redisClient, ecno, draftId) {
+    if (!redisClient) return null;
     const key = `pr:draft:${ecno}:${draftId}`;
     const raw = await redisClient.get(key);
     if (!raw) return null;
@@ -126,6 +130,7 @@ class PRRepository {
   }
 
   async updateDraft(redisClient, ecno, draftId, draftData) {
+    if (!redisClient) return null;
     const key = `pr:draft:${ecno}:${draftId}`;
     const existing = await redisClient.get(key);
     if (!existing) return null;
@@ -145,6 +150,7 @@ class PRRepository {
   }
 
   async deleteDraft(redisClient, ecno, draftId) {
+    if (!redisClient) return false;
     const key = `pr:draft:${ecno}:${draftId}`;
     const indexKey = `pr:drafts:${ecno}`;
     const deleted = await redisClient.del(key);
@@ -169,6 +175,7 @@ class PRRepository {
   }
 
   async saveDeptDraft(redisClient, ecno, userName, draftData) {
+    if (!redisClient) return null;
     const { basicInfo = {} } = draftData;
     const scopeKey = this.buildScopeKey(basicInfo.com_sno, basicInfo.div_sno, basicInfo.brn_sno);
     const draftId = randomUUID();
@@ -192,6 +199,7 @@ class PRRepository {
   }
 
   async getDeptDrafts(redisClient, scopeKey) {
+    if (!redisClient) return [];
     const indexKey = `pr:deptdrafts:${scopeKey}`;
     const draftIds = await redisClient.sMembers(indexKey);
     if (!draftIds || draftIds.length === 0) return [];
@@ -214,6 +222,7 @@ class PRRepository {
   }
 
   async getDeptDraft(redisClient, scopeKey, draftId) {
+    if (!redisClient) return null;
     const key = `pr:deptdraft:${scopeKey}:${draftId}`;
     const raw = await redisClient.get(key);
     if (!raw) return null;
@@ -221,6 +230,7 @@ class PRRepository {
   }
 
   async updateDeptDraft(redisClient, ecno, userName, scopeKey, draftId, draftData) {
+    if (!redisClient) return null;
     const key = `pr:deptdraft:${scopeKey}:${draftId}`;
     const existing = await redisClient.get(key);
     if (!existing) return null;
@@ -241,6 +251,7 @@ class PRRepository {
   }
 
   async deleteDeptDraft(redisClient, scopeKey, draftId) {
+    if (!redisClient) return false;
     const key = `pr:deptdraft:${scopeKey}:${draftId}`;
     const indexKey = `pr:deptdrafts:${scopeKey}`;
     const deleted = await redisClient.del(key);

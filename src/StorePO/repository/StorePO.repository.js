@@ -29,8 +29,10 @@ class StorePORepository {
   }
 
   // ── DRAFT OPERATIONS (Redis) ──────────────────────────────────────────────
+  // Redis integration commented out — will be reintegrated later.
 
   async savePODraft(redisClient, ecno, draftData) {
+    if (!redisClient) return null;
     const draftId = randomUUID();
     const key = `po:draft:${ecno}:${draftId}`;
     const indexKey = `po:drafts:${ecno}`;
@@ -51,6 +53,7 @@ class StorePORepository {
   }
 
   async getPODrafts(redisClient, ecno) {
+    if (!redisClient) return [];
     const indexKey = `po:drafts:${ecno}`;
     const draftIds = await redisClient.sMembers(indexKey);
     if (!draftIds || draftIds.length === 0) return [];
@@ -73,6 +76,7 @@ class StorePORepository {
   }
 
   async getPODraft(redisClient, ecno, draftId) {
+    if (!redisClient) return null;
     const key = `po:draft:${ecno}:${draftId}`;
     const raw = await redisClient.get(key);
     if (!raw) return null;
@@ -80,6 +84,7 @@ class StorePORepository {
   }
 
   async updatePODraft(redisClient, ecno, draftId, draftData) {
+    if (!redisClient) return null;
     const key = `po:draft:${ecno}:${draftId}`;
     const existing = await redisClient.get(key);
     if (!existing) return null;
@@ -99,6 +104,7 @@ class StorePORepository {
   }
 
   async deletePODraft(redisClient, ecno, draftId) {
+    if (!redisClient) return false;
     const key = `po:draft:${ecno}:${draftId}`;
     const indexKey = `po:drafts:${ecno}`;
     const deleted = await redisClient.del(key);
