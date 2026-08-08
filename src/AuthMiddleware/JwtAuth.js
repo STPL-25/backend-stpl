@@ -80,7 +80,7 @@ const verifyJWT = async (req, res, next) => {
 
   const sessionJwt = req.session?.jwt;
   const bearerJwt = process.env.NODE_ENV !== "production" ? getBearerToken(req) : null;
-  
+
   const jwtToken = sessionJwt || bearerJwt;
   const isSessionAuth = Boolean(sessionJwt);
   if (!jwtToken) {
@@ -104,7 +104,6 @@ const verifyJWT = async (req, res, next) => {
     const payload = jwt.verify(jwtToken, JWT_SECRET, { algorithms: ["HS256"] });
     req.user = getUserFromPayload(payload);
     req.user_ecno = getEcnoFromUser(req.user);
-
 
     // --- Session ID rotation every 1 hour ---
     const sessionAge = isSessionAuth ? now - (req.session.createdAt || now) : 0;

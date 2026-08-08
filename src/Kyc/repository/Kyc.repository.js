@@ -37,13 +37,14 @@ class KYCRepo {
 
   async getPendingApprovals(ecno) {
     try {
+      console.log("Fetching pending approvals for ECNO:", ecno);
       const request = mssqlPool.request();
       request.input('Ecno', mssql.VarChar(50), ecno);
 
       const result = await request.execute(this.storedProcedures.getPendingApprovals);
       return result.recordset;
     } catch (error) {
-      console.log(error)
+      console.log("Error fetching pending approvals:", error);
       throw new Error(`Database error: ${error.message}`);
     }
   }

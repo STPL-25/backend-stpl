@@ -33,7 +33,7 @@ import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
 import cryptoDebugRouter from "./src/Utils/CryptoDebug/cryptoDebugRoutes.js";
 import jwt from "jsonwebtoken";
-configDotenv();
+configDotenv({ path: `.env.${process.env.NODE_ENV || "development"}` });
 
 const app = express();
 const server = createServer(app);
@@ -69,9 +69,19 @@ const redisClient = null;
 // ----------------------------
 // SOCKET.IO (in-memory adapter — Redis adapter commented out, will be reintegrated later)
 // ----------------------------
+// Allowed CORS origins (HTTP + Socket.IO) — CLIENT_URL may be a comma-separated
+// list; localhost dev origins are only added outside production
+// const allowedOrigins = [
+//     ...(process.env.CLIENT_URL?.split(",").map((o) => o.trim()) ?? []),
+//     ...(process.env.NODE_ENV !== "production"
+//         ? ["http://localhost:5173"]
+//         : []),
+// ].filter(Boolean);
+const allowedOrigins = true;
+
 const io = new Server(server, {
     cors: {
-        origin: process.env.CLIENT_URL,
+        origin: allowedOrigins,
         credentials: true,
     },
     // adapter: createAdapter(pubClient, subClient),
@@ -193,7 +203,7 @@ app.use(compression());
 // CORS
 // ----------------------------
 app.use(cors({
-    origin: [process.env.CLIENT_URL, "http://localhost:5173","http://localhost:5000","http://localhost:4200"].filter(Boolean),
+    origin: allowedOrigins,
     credentials: true,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     allowedHeaders: ["Content-Type", "Authorization"],
@@ -226,6 +236,7 @@ const sessionMiddleware = session({
 });
 app.use(sessionMiddleware);
 
+
 // Make io and redisClient available in all route handlers
 app.use((req, _res, next) => {
     req.io          = io;
@@ -256,6 +267,16 @@ app.get("/health", (_req, res) =>
     res.json({ status: "ok", timestamp: new Date().toISOString(), docs: "/api-docs" })
 );
 
+// Internal: resolves the caller's session cookie to its JWT. grn-service is
+// stateless and only accepts Authorization: Bearer <jwt>, so the gateway
+// calls this (forwarding the client's Cookie header) to bridge the browser's
+// session cookie into a bearer token — without either service sharing a
+// session store.
+app.get("/internal/session-jwt", (req, res) => {
+    if (!req.session?.jwt) return res.status(401).json({ success: false });
+    res.json({ jwt: req.session.jwt });
+});
+
 // ----------------------------
 // ROUTES
 // ----------------------------
@@ -267,16 +288,16 @@ app.use("/api/debug", cryptoDebugRouter);
 app.use("/api/secure",   signUpRouter);
 
 // Protected API routes — require valid JWT + general rate limit + payload encryption
-app.use("/api/common_master",         verifyJWT, commonMasterRouter);
-app.use("/api/user_approval",        apiLimiter, verifyJWT,  UserApprovalrouter);
-app.use("/api/common_basic_details", apiLimiter, verifyJWT,  commonBasicDetailsRouter);
-app.use("/api/budget",               apiLimiter, verifyJWT,  BudgetRouter);
-app.use("/api/kyc",                  apiLimiter,  verifyJWT, Kycrouter);
-app.use("/api/workflow_approval",    apiLimiter, verifyJWT,  WorkFlowApprovalrouter);
-app.use("/api/pr",                   apiLimiter, verifyJWT,  PRrouter);
-app.use("/api/po",                   apiLimiter, verifyJWT,  POrouter);
+app.use("/api/common_master",      verifyJWT,   commonMasterRouter);
+app.use("/api/user_approval",      verifyJWT,    UserApprovalrouter);
+app.use("/api/common_basic_details",     commonBasicDetailsRouter);
+app.use("/api/budget",            verifyJWT,      BudgetRouter);
+app.use("/api/kyc",                verifyJWT,    Kycrouter);
+app.use("/api/workflow_approval",     verifyJWT,     WorkFlowApprovalrouter);
+app.use("/api/pr",                    verifyJWT,                    PRrouter);
+app.use("/api/po",                    verifyJWT,                    POrouter);
 // app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
-app.use("/api/purchase_team",        apiLimiter,  verifyJWT, PurchaseTeamRouter);
+app.use("/api/purchase_team",       verifyJWT,       PurchaseTeamRouter);
 // app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
 // app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
 app.use(imageRouter);

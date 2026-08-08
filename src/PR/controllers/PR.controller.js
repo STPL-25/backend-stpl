@@ -50,7 +50,9 @@ class PRController {
 
   static async getPrRecords(req, res) {
     try {
-      const ecno = req.query.ecno;
+      console.log("1111111111111111111111111111111111111",req.user_ecno)
+      // const ecno = req.query.ecno;
+      const ecno = req.user_ecno; // Use the authenticated user's ecno from JWT payload
       const data = await PRService.getPrRecords(ecno);
       res.json({ success: true, data });
     } catch (error) {
