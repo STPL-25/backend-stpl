@@ -1,4 +1,5 @@
 import CommonMasterServices from "../Services/CommonMasterServices.js";
+import { validateMasterCreate } from "../validation/masterValidation.js";
 
 class CommonMasterControllers {
   static async getAllMasterData(req, res) {
@@ -48,11 +49,35 @@ class CommonMasterControllers {
   static async createMasterData(req, res) {
     try {
       const { masterField } = req.params;
-      console.log(req.body,masterField)
+
+      // Required-field enforcement — a form (or a direct API call) that
+      // omits mandatory fields is rejected here, before any stored
+      // procedure runs. The UI can be bypassed; this cannot.
+      const { valid, errors } = validateMasterCreate(masterField, req.body);
+      if (!valid) {
+        return res.status(422).json({
+          success: false,
+          error: errors.join("; "),
+          fields: errors,
+        });
+      }
+
       const data = await CommonMasterServices.createCommonMaster(
         masterField,
         req.body
       );
+
+      // A 201 must mean a row actually exists now. If the stored procedure
+      // returned no recordset (e.g. it no-opped on a payload it didn't like
+      // instead of raising an error), that is a failure, not a success —
+      // telling the user "created successfully" here would be a lie.
+      const created = Array.isArray(data) ? data.length > 0 : Boolean(data);
+      if (!created) {
+        return res.status(500).json({
+          success: false,
+          error: `${masterField} was not created — the database returned no record.`,
+        });
+      }
 
       req.io?.emit("master:updated", { masterField, action: "created" });
 

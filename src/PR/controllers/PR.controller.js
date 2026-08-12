@@ -62,9 +62,10 @@ class PRController {
 
   static async approvePr(req, res) {
     try {
-      const user = getAuthUser(req);
-
-      const { pr_no, ecno, comments, approval_stages, action } = req.body;
+      const { pr_no, comments, approval_stages, action } = req.body;
+      // approved_by comes from the session, never the request body — a
+      // client-supplied ecno would let anyone forge who approved a PR.
+      const ecno = req.user_ecno;
 
       if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
       if (!pr_no || !action) {

@@ -4,7 +4,9 @@ import { invalidateCacheByPattern } from "../../Middleware/redisCache.js";
 class POController {
   static async getPoRecords(req, res) {
     try {
-      const ecno = req.query.ecno;
+      // Identity is never taken from the client — a caller could otherwise
+      // pass ?ecno=<someone-else> and read that employee's PO records.
+      const ecno = req.user_ecno;
       const data = await POService.getPoRecords(ecno);
       res.json({ success: true, data });
     } catch (error) {
@@ -14,7 +16,11 @@ class POController {
 
   static async approvePo(req, res) {
     try {
-      const { sq_basic_sno, quotation_ref_no, ecno, comments, approval_stages, action } = req.body;
+      const { sq_basic_sno, quotation_ref_no, comments, approval_stages, action } = req.body;
+      // approved_by is always the authenticated session's ecno, never a
+      // client-supplied value — otherwise anyone could forge the approval
+      // audit trail by approving on another employee's behalf.
+      const ecno = req.user_ecno;
 
       if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
       if (!sq_basic_sno || !action) {
