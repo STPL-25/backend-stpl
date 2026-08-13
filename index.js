@@ -28,7 +28,6 @@ import POrouter from "./src/PO/routes/PO.routes.js";
 import StorePOrouter from "./src/StorePO/routes/StorePO.routes.js";
 import PurchaseTeamRouter from "./src/PurchaseTeam/routes/PurchaseTeam.routes.js";
 import GRNRouter from "./src/GRN/routes/GRN.routes.js";
-import NotificationsRouter from "./src/Notifications/routes/Notifications.routes.js";
 import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
 import cryptoDebugRouter from "./src/Utils/CryptoDebug/cryptoDebugRoutes.js";
@@ -38,6 +37,10 @@ configDotenv({ path: `.env.${process.env.NODE_ENV || "development"}` });
 const app = express();
 const server = createServer(app);
 app.set("trust proxy", 1); // behind API gateway — real client IP for rate limiting / logs
+
+// Shared secret for grn-service -> this backend service calls (currently
+// just POST /internal/broadcast). Must match grn-service's env value.
+const INTERNAL_BROADCAST_SECRET = process.env.INTERNAL_BROADCAST_SECRET;
 
 // ----------------------------
 // REDIS SETUP
@@ -277,6 +280,24 @@ app.get("/internal/session-jwt", (req, res) => {
     res.json({ jwt: req.session.jwt });
 });
 
+// Internal: grn-service (stateless, no Socket.IO of its own) posts here to
+// re-emit a real-time event on this process's `io` instance. Replaces the
+// old Redis pub/sub bridge (see grn-service/src/utils/socketBroadcast.js),
+// which silently dropped every event because neither service had a Redis
+// client wired up. Authenticated with a shared secret, not the user's
+// session — this is a service-to-service call, not a browser request.
+app.post("/internal/broadcast", (req, res) => {
+    if (!INTERNAL_BROADCAST_SECRET || req.headers["x-internal-secret"] !== INTERNAL_BROADCAST_SECRET) {
+        return res.status(403).json({ success: false });
+    }
+    const { room, event, payload } = req.body ?? {};
+    if (!room || !event) {
+        return res.status(400).json({ success: false, message: "room and event are required" });
+    }
+    io.to(room).emit(event, payload);
+    res.json({ success: true });
+});
+
 // ----------------------------
 // ROUTES
 // ----------------------------
@@ -299,7 +320,9 @@ app.use("/api/po",                    verifyJWT,                    POrouter);
 // app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
 app.use("/api/purchase_team",       verifyJWT,       PurchaseTeamRouter);
 // app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
-// app.use("/api/notifications",        apiLimiter, verifyJWT, payloadCrypto, NotificationsRouter);
+// In-app notifications now live in notification-service (see
+// notification-service/src/notifications) — the gateway routes
+// /api/notifications there directly instead of here.
 app.use(imageRouter);
 
 

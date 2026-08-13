@@ -3,7 +3,7 @@ import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import xml2js from "xml2js";
 import KYCRepo from "../repository/Kyc.repository.js";
-import { sendMail, buildSupplierInviteEmail } from "../../Utils/Mailer/mailer.js";
+import { sendSupplierInviteEmail } from "../../Utils/Notify/notifyClient.js";
 
 const { stripPrefix } = xml2js.processors;
 const GSTN_SERVICE_URL =
@@ -119,15 +119,13 @@ class KYCServices {
         created_by,
       });
 
-      const mailResult = await sendMail(
-        buildSupplierInviteEmail({
-          to: contact.email,
-          companyName: contact.company_name || "Supplier",
-          suppCode: contact.supp_code,
-          tempPassword,
-          portalUrl: SUPPLIER_PORTAL_URL,
-        })
-      );
+      const mailResult = await sendSupplierInviteEmail({
+        to: contact.email,
+        companyName: contact.company_name || "Supplier",
+        suppCode: contact.supp_code,
+        tempPassword,
+        portalUrl: SUPPLIER_PORTAL_URL,
+      });
 
       return { emailSent: mailResult.sent, login_email: contact.email };
     } catch (error) {

@@ -1,5 +1,5 @@
 import PurchaseTeamRepository from "../repository/PurchaseTeam.repository.js";
-import { sendMail, buildPOGeneratedEmail } from "../../Utils/Mailer/mailer.js";
+import { sendPOGeneratedEmail } from "../../Utils/Notify/notifyClient.js";
 import { ftpUploader } from "../../Utils/ImagesUpload/ImgUpload.js";
 import { nanoid } from "nanoid";
 
@@ -71,7 +71,7 @@ class PurchaseTeamService {
         0
       );
 
-      const message = buildPOGeneratedEmail({
+      const mailResult = await sendPOGeneratedEmail({
         to: contact.email,
         companyName: contact.company_name || "Supplier",
         poNo: po_no,
@@ -82,13 +82,9 @@ class PurchaseTeamService {
         termsConditions: terms_conditions,
         deliveryAddress: delivery_address,
         portalUrl: SUPPLIER_PORTAL_URL,
+        pdfBuffer,
+        pdfFilename,
       });
-
-      message.attachments = [
-        { filename: pdfFilename || `${po_no}.pdf`, content: pdfBuffer, contentType: "application/pdf" },
-      ];
-console.log("Sending PO email with message:", message);
-      const mailResult = await sendMail(message);
 
       return { emailSent: mailResult.sent, login_email: contact.email, po_pdf_url };
     } catch (error) {

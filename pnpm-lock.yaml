@@ -65,9 +65,6 @@ importers:
       nanoid:
         specifier: ^3.3.11
         version: 3.3.15
-      nodemailer:
-        specifier: ^9.0.3
-        version: 9.0.3
       nodemon:
         specifier: ^3.1.10
         version: 3.1.14
@@ -2232,10 +2229,6 @@ packages:
   node-releases@2.0.50:
     resolution: {integrity: sha512-J6l92tKHX6w8Jy5nO1Vuc01NoIiRGi/d6qBKVxh+IQ8Cr3b6HbVNfKiF8ZpFKufTwpwxMmce2W3iQZ861ZRyTg==}
     engines: {node: '>=18'}
-
-  nodemailer@9.0.3:
-    resolution: {integrity: sha512-n+YP+NKwR5zRWa60k3GiQ6Q3B4KXCoAw40dAKeCtYn020iNN74aWK2liXIC3ZEATeGql7we3tE3t8QwhY0eskw==}
-    engines: {node: '>=6.0.0'}
 
   nodemon@3.1.14:
     resolution: {integrity: sha512-jakjZi93UtB3jHMWsXL68FXSAosbLfY0In5gtKq3niLSkrWznrVBzXFNOEMJUfc9+Ke7SHWoAZsiMkNP3vq6Jw==}
@@ -5487,8 +5480,6 @@ snapshots:
       - '@types/node'
 
   node-releases@2.0.50: {}
-
-  nodemailer@9.0.3: {}
 
   nodemon@3.1.14:
     dependencies:

@@ -65,7 +65,6 @@ const options = {
     "./src/PR/routes/*.js",
     "./src/UserApproval/routes/*.js",
     "./src/WorkFlowApproval/routes/*.js",
-    "./src/Notifications/routes/*.js",
   ],
 };
 
