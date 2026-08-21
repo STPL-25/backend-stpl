@@ -25,7 +25,11 @@ class CommonMasterRepo {
             "WorkflowMaster": "sp_nt_GetWorkflowMaster",
             "SupplierCatagoryMaster": "usp_GetSupplierCategoryRecords",
             "BusinessDetailsMatster": "sp_Get_Business_Details",
-            "TransportMaster": "sp_nt_GetTransportRecords"
+            "TransportMaster": "sp_nt_GetTransportRecords",
+            "ServiceTypeMaster": "sp_nt_GetServiceTypeRecords",
+            "ServiceMaster": "sp_nt_GetServiceRecords",
+            "BankAccountTypeMaster": "sp_nt_GetBankAccountTypeRecords",
+            "WarehouseLocationMaster": "sp_nt_GetWarehouseLocationRecords"
         };
 
         this.createProcedureMap = {
@@ -42,7 +46,11 @@ class CommonMasterRepo {
             'ScreenPermission': 'sp_nt_CreatePermissionRecords',
             'ProductMaster': 'sp_nt_CreateProductRecord',
             "WorkflowMaster": "sp_nt_CreateWorkflowMaster",
-            "TransportMaster": "sp_nt_CreateTransportRecords"
+            "TransportMaster": "sp_nt_CreateTransportRecords",
+            "ServiceTypeMaster": "sp_nt_CreateServiceTypeRecords",
+            "ServiceMaster": "sp_nt_CreateServiceRecords",
+            "BankAccountTypeMaster": "sp_nt_CreateBankAccountTypeRecords",
+            "WarehouseLocationMaster": "sp_nt_CreateWarehouseLocationRecords"
         };
 
         this.updateProcedureMap = {
@@ -78,6 +86,12 @@ class CommonMasterRepo {
         'CategoryMaster': { label: 'cat_name', value: 'cat_sno' },
         'SubCategoryMaster': { label: 'subcat_name', value: 'subcat_sno' },
         'TransportMaster': { label: 'transport_name', value: 'transport_sno' },
+        'ServiceTypeMaster': { label: 'service_type_name', value: 'service_type_sno', extra: ['service_type_code', 'requires_ceiling_amount', 'requires_variance_tolerance'] },
+        'ServiceMaster': { label: 'service_name', value: 'service_sno', extra: ['service_type_sno', 'default_uom_sno', 'is_recurring', 'recurrence_cadence'] },
+        // value = account_type_name (not the sno) — KYC's ac_type column stores free text,
+        // no ac_type_sno FK exists, so the option value must be the text itself.
+        'BankAccountTypeMaster': { label: 'account_type_name', value: 'bank_account_type_sno', extra: ['bank_account_type_sno', 'account_type_code'] },
+        'WarehouseLocationMaster': { label: 'location_name', value: 'location_sno', extra: ['location_code', 'com_snos', 'div_snos', 'brn_snos'] },
     };
 
     }

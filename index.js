@@ -25,6 +25,9 @@ import imageRouter from "./src/Utils/ImagesUpload/imageRoute.js";
 import WorkFlowApprovalrouter from "./src/WorkFlowApproval/routes/WorkFlowApproval.routes.js";
 import PRrouter from "./src/PR/routes/PR.routes.js";
 import POrouter from "./src/PO/routes/PO.routes.js";
+import ServicePOrouter from "./src/ServicePO/routes/ServicePO.routes.js";
+import ServiceAgreementRouter from "./src/ServiceAgreement/routes/ServiceAgreement.routes.js";
+import { startServiceAgreementScheduledJobs } from "./src/ServiceAgreement/jobs/RecurringPrJob.js";
 import StorePOrouter from "./src/StorePO/routes/StorePO.routes.js";
 import PurchaseTeamRouter from "./src/PurchaseTeam/routes/PurchaseTeam.routes.js";
 import GRNRouter from "./src/GRN/routes/GRN.routes.js";
@@ -153,6 +156,22 @@ io.on("connection", (socket) => {
         socket.leave("po:approval");
     });
 
+    socket.on("join-service_po-approval", () => {
+        socket.join("service_po:approval");
+    });
+
+    socket.on("leave-service_po-approval", () => {
+        socket.leave("service_po:approval");
+    });
+
+    socket.on("join-service_agreement-approval", () => {
+        socket.join("service_agreement:approval");
+    });
+
+    socket.on("leave-service_agreement-approval", () => {
+        socket.leave("service_agreement:approval");
+    });
+
     // Purchase Team room: live PR-split updates on the purchase screen sidebar
     socket.on("join-purchase-team", () => {
         socket.join("purchase-team");
@@ -178,6 +197,35 @@ io.on("connection", (socket) => {
 
     socket.on("leave-grn", () => {
         socket.leave("grn:live");
+    });
+
+    // Service Entry room: live updates on the Service Entry pages
+    // (service_entry:created, service_entry:approval:updated), bridged from
+    // grn-service via /internal/broadcast (see src/utils/socketBroadcast.js)
+    socket.on("join-service_entry", () => {
+        socket.join("service_entry:live");
+    });
+
+    socket.on("leave-service_entry", () => {
+        socket.leave("service_entry:live");
+    });
+
+    // Invoice / Payment rooms: live updates on the Invoice and Payment pages,
+    // bridged from grn-service via /internal/broadcast
+    socket.on("join-invoice", () => {
+        socket.join("invoice:live");
+    });
+
+    socket.on("leave-invoice", () => {
+        socket.leave("invoice:live");
+    });
+
+    socket.on("join-payment", () => {
+        socket.join("payment:live");
+    });
+
+    socket.on("leave-payment", () => {
+        socket.leave("payment:live");
     });
 
     // Inventory room: live stock updates (inventory:updated), including
@@ -317,6 +365,8 @@ app.use("/api/kyc",                verifyJWT,    Kycrouter);
 app.use("/api/workflow_approval",     verifyJWT,     WorkFlowApprovalrouter);
 app.use("/api/pr",                    verifyJWT,                    PRrouter);
 app.use("/api/po",                    verifyJWT,                    POrouter);
+app.use("/api/service_po",            verifyJWT,             ServicePOrouter);
+app.use("/api/service_agreement",     verifyJWT,      ServiceAgreementRouter);
 // app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
 app.use("/api/purchase_team",       verifyJWT,       PurchaseTeamRouter);
 // app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
@@ -368,4 +418,8 @@ server.listen(PORT, () => {
     console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || "development"}]`);
     console.log(`API Docs → http://localhost:${PORT}/api-docs`);
     console.log(` Health  → http://localhost:${PORT}/health`);
+
+    // Recurring PR generation + Service Agreement expiry (spec §5/§3.2) —
+    // see src/ServiceAgreement/jobs/RecurringPrJob.js
+    startServiceAgreementScheduledJobs();
 });

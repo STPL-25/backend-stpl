@@ -41,6 +41,8 @@ const REQUIRED_FIELDS = {
   ProductMaster: ["cat_sno", "subcat_sno", "prod_name", "uom_sno"],
   WorkflowMaster: ["workflow_name", "workflow_code", "entity_type"],
   TransportMaster: ["transport_name"],
+  BankAccountTypeMaster: ["account_type_code", "account_type_name"],
+  WarehouseLocationMaster: ["location_code", "location_name", "com_snos"],
 };
 
 // Fields that are only mandatory conditionally on another field's value.

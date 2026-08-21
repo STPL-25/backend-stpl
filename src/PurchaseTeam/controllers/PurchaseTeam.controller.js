@@ -107,6 +107,7 @@ class PurchaseTeamController {
       // approved-PR list on every Purchase Team screen live (across clients) —
       // same mechanism as saveSplitGroup.
       const approvedPRs = await PurchaseTeamService.getApprovedPRs();
+      console.log("Emitting pt:split:updated event to purchase-team room with data:", approvedPRs);
       req.io?.to("purchase-team").emit("pt:split:updated", { data: approvedPRs });
 
       res.json({ success: true, data, message: "Quotation selected" });

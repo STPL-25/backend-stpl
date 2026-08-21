@@ -16,6 +16,14 @@ configDotenv();
 
 const router = express.Router();
 
+// Parse the body as JSON no matter what Content-Type header the client sent
+// (or omitted) — these are quick Postman/curl testing endpoints, and a
+// missing/incorrect "Content-Type: application/json" header is the most
+// common reason req.body comes back empty. The global express.json() in
+// index.js already parsed it if the header was correct, in which case this
+// is a no-op (body-parser skips re-parsing once req._body is set).
+router.use(express.json({ type: () => true }));
+
 // Derive the same key used by payloadCrypto middleware
 const API_PAYLOAD_KEY = crypto.pbkdf2Sync(
     process.env.CRYPTO_SECRET,
@@ -80,7 +88,6 @@ router.use((_req, res, next) => {
  */
 router.post("/decrypt", (req, res) => {
     const { d, iv } = req.body ?? {};
-
     if (typeof d !== "string" || typeof iv !== "string") {
         return res.status(400).json({
             success: false,
@@ -92,6 +99,7 @@ router.post("/decrypt", (req, res) => {
         const decrypted = decryptJson({ d, iv });
         return res.json({ success: true, decrypted });
     } catch (err) {
+        console.error("Decryption error:", err);
         return res.status(422).json({
             success: false,
             message: "Decryption failed — invalid payload, wrong key, or tampered ciphertext.",
@@ -116,6 +124,7 @@ router.post("/encrypt", (req, res) => {
         const encrypted = encryptJson(body);
         return res.json({ success: true, encrypted });
     } catch (err) {
+        console.error("Encryption error:", err);
         return res.status(500).json({
             success: false,
             message: "Encryption failed.",
