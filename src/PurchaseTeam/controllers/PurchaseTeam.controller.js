@@ -169,6 +169,16 @@ class PurchaseTeamController {
       });
 
       res.json({ success: true, data, message: "Purchase Order emailed to supplier" });
+
+      // Additive-only PR tracking hook — fires after the response above is
+      // already sent, never affects it either way.
+      if (po_basic_sno) {
+        PurchaseTeamService.logSentToSupplierAndBroadcast({
+          po_basic_sno: Number(po_basic_sno),
+          status_by: req.user_ecno,
+          io: req.io,
+        }).catch((err) => console.error("PR tracking hook (sendPOEmail) failed:", err.message));
+      }
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }

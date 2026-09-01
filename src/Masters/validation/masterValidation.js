@@ -31,18 +31,33 @@ const REQUIRED_FIELDS = {
     "add_state_code",
     "add_pin_code",
   ],
-  UomMaster: ["uom_code", "uom_name", "uom_class", "uom_base_uom_flag", "uom_con_factor"],
+  // uom_con_factor is deliberately NOT required — a non-base packaging unit
+  // like Box has no single fixed conversion (it varies per product), so its
+  // uom_con_factor is left blank on purpose. Products using such a unit
+  // supply their own prod_uom_con_factor instead (see ProductMaster below).
+  UomMaster: ["uom_code", "uom_name", "uom_class", "uom_base_uom_flag"],
   GSTStateCodeMaster: ["gst_state_un_name", "gst_code", "gst_alpha_code"],
   AcYearMaster: ["ac_year_code", "ac_year"],
   PriorityMaster: ["priority_name", "priority_desc"],
   DeptMaster: ["com_sno", "div_sno", "brn_sno", "dept_name", "dept_code"],
   ScreenMaster: ["screen_name"],
   ScreenPermission: ["permission_name"],
+  // prod_uom_con_factor is conditionally required (only when the selected
+  // uom_sno is a non-base unit with no fixed uom_master.uom_con_factor, e.g.
+  // Box) — that depends on a DB lookup this synchronous validator can't do,
+  // so it's left unvalidated here and enforced authoritatively in
+  // sp_nt_CreateProductRecord (see backend-stpl/sql/26_product_uom_conversion_factor.sql).
   ProductMaster: ["cat_sno", "subcat_sno", "prod_name", "uom_sno"],
+  // cat_notes doubles as the product-code prefix (see
+  // sp_nt_CreateProductRecord's CategoryPrefix CTE) — not optional free text.
+  ProductCategoryMaster: ["cat_name", "cat_notes"],
+  ProductSubCategoryMaster: ["cat_sno", "subcat_name"],
   WorkflowMaster: ["workflow_name", "workflow_code", "entity_type"],
   TransportMaster: ["transport_name"],
   BankAccountTypeMaster: ["account_type_code", "account_type_name"],
   WarehouseLocationMaster: ["location_code", "location_name", "com_snos"],
+  RecurrenceCadenceMaster: ["cadence_code", "cadence_name", "interval_unit", "interval_value"],
+  DesignationMaster: ["designation_code", "designation_name"],
 };
 
 // Fields that are only mandatory conditionally on another field's value.

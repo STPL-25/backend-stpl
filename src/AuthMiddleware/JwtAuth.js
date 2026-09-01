@@ -30,7 +30,11 @@ function getUserFromPayload(payload) {
 
 function getEcnoFromUser(user) {
   const normalizedUser = Array.isArray(user) ? user[0] : user;
-  return normalizedUser?.ecno ?? null;
+  // Non-staff sessions have no ecno — their login_id is the equivalent
+  // identity everywhere req.user_ecno is used as "the current actor"
+  // (approver_ecno/current_approver_id columns are opaque VARCHAR compared
+  // by string equality, so a login_id works against them unmodified).
+  return normalizedUser?.ecno ?? normalizedUser?.login_id ?? null;
 }
 
 /**
@@ -77,10 +81,8 @@ const verifyJWT = async (req, res, next) => {
       return next();
     }
   }
-
   const sessionJwt = req.session?.jwt;
   const bearerJwt = process.env.NODE_ENV !== "production" ? getBearerToken(req) : null;
-
   const jwtToken = sessionJwt || bearerJwt;
   const isSessionAuth = Boolean(sessionJwt);
   if (!jwtToken) {

@@ -51,6 +51,10 @@ class ServicePOService {
     return this.repo.approveServicePO(approvalData);
   }
 
+  static async reviseServicePOCeiling(payload) {
+    return this.repo.reviseServicePOCeiling(payload);
+  }
+
   static async getServicePORecords(ecno) {
     return this.repo.getServicePORecords(ecno);
   }

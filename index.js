@@ -28,8 +28,11 @@ import POrouter from "./src/PO/routes/PO.routes.js";
 import ServicePOrouter from "./src/ServicePO/routes/ServicePO.routes.js";
 import ServiceAgreementRouter from "./src/ServiceAgreement/routes/ServiceAgreement.routes.js";
 import { startServiceAgreementScheduledJobs } from "./src/ServiceAgreement/jobs/RecurringPrJob.js";
+import ServiceBillRequestRouter from "./src/ServiceBillRequest/routes/ServiceBillRequest.routes.js";
+import PRTrackingRouter from "./src/PRTracking/routes/PRTracking.routes.js";
 import StorePOrouter from "./src/StorePO/routes/StorePO.routes.js";
 import PurchaseTeamRouter from "./src/PurchaseTeam/routes/PurchaseTeam.routes.js";
+import NonStaffUserRouter from "./src/NonStaffUser/routes/NonStaffUser.routes.js";
 import GRNRouter from "./src/GRN/routes/GRN.routes.js";
 import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
@@ -172,6 +175,14 @@ io.on("connection", (socket) => {
         socket.leave("service_agreement:approval");
     });
 
+    socket.on("join-service_bill_request-approval", () => {
+        socket.join("service_bill_request:approval");
+    });
+
+    socket.on("leave-service_bill_request-approval", () => {
+        socket.leave("service_bill_request:approval");
+    });
+
     // Purchase Team room: live PR-split updates on the purchase screen sidebar
     socket.on("join-purchase-team", () => {
         socket.join("purchase-team");
@@ -197,6 +208,19 @@ io.on("connection", (socket) => {
 
     socket.on("leave-grn", () => {
         socket.leave("grn:live");
+    });
+
+    // PR Tracking room: one requester's full PR journey (pr:track:updated),
+    // fired from every touch point along PR -> Quotation -> PO -> Dispatch ->
+    // Gate Entry -> GRN -> Inventory. Keyed per pr_no (unlike the broader
+    // scope/domain rooms above) so a single tracking page doesn't have to
+    // filter a firehose of every other PR's events client-side.
+    socket.on("join-pr-track", (pr_no) => {
+        if (pr_no && typeof pr_no === "string") socket.join(`pr:track:${pr_no}`);
+    });
+
+    socket.on("leave-pr-track", (pr_no) => {
+        if (pr_no && typeof pr_no === "string") socket.leave(`pr:track:${pr_no}`);
     });
 
     // Service Entry room: live updates on the Service Entry pages
@@ -367,8 +391,16 @@ app.use("/api/pr",                    verifyJWT,                    PRrouter);
 app.use("/api/po",                    verifyJWT,                    POrouter);
 app.use("/api/service_po",            verifyJWT,             ServicePOrouter);
 app.use("/api/service_agreement",     verifyJWT,      ServiceAgreementRouter);
+app.use("/api/service_bill_request",  verifyJWT,   ServiceBillRequestRouter);
+app.use("/api/pr_tracking",           verifyJWT,          PRTrackingRouter);
 // app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
 app.use("/api/purchase_team",       verifyJWT,       PurchaseTeamRouter);
+// Not globally wrapped in verifyJWT — per-route auth inside the router
+// itself (create/list are staff-only; login is public and issues the same
+// session cookie as staff login, so a non-staff user lands on the same
+// Dashboard, not a separate portal), same pattern as grn-service's
+// SupplierRouter.
+app.use("/api/nonstaff",            NonStaffUserRouter);
 // app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
 // In-app notifications now live in notification-service (see
 // notification-service/src/notifications) — the gateway routes

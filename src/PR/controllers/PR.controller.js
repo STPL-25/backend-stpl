@@ -83,6 +83,16 @@ class PRController {
 
       // req.io.emit("pr:approval:updated", { pr_no, action, approved_by: ecno });
 
+      // Additive PR-tracking push for the requester's tracking page.
+      if (req.io) {
+        req.io.to(`pr:track:${pr_no}`).emit("pr:track:updated", {
+          pr_no,
+          stage: action === "approve" ? "PR Approval" : "PR Rejected",
+          status: action,
+          payload: { approved_by: ecno, comments },
+        });
+      }
+
       res.json({ success: true, data, message:  `successfully`});
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

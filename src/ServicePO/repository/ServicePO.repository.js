@@ -37,6 +37,10 @@ class ServicePORepository {
     return this.executeJsonProcedure("sp_nt_ApproveServicePO", approvalData);
   }
 
+  async reviseServicePOCeiling(payload) {
+    return this.executeJsonProcedure("sp_nt_ReviseServicePOCeiling", payload);
+  }
+
   // Pending Service POs for the logged-in approver.
   async getServicePORecords(ecno) {
     try {

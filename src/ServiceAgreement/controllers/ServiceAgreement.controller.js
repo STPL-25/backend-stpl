@@ -12,10 +12,11 @@ class ServiceAgreementController {
 
       const {
         com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno,
-        rate_amount, rate_uom_sno, recurrence_cadence,
+        rate_amount, rate_uom_sno, recurrence_cadence, recurrence_cadence_sno,
+        ceiling_amount, variance_tolerance_pct,
         period_start_date, period_end_date, remarks,
       } = req.body;
-
+console.log("test",com_sno, div_sno, brn_sno, dept_sno, service_sno)
       if (!com_sno || !div_sno || !brn_sno || !dept_sno || !service_sno) {
         return res.status(400).json({ success: false, error: "com_sno, div_sno, brn_sno, dept_sno and service_sno are required" });
       }
@@ -39,16 +40,18 @@ class ServiceAgreementController {
 
       const data = await ServiceAgreementService.createServiceAgreement({
         com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno,
-        rate_amount, rate_uom_sno, recurrence_cadence,
+        rate_amount, rate_uom_sno, recurrence_cadence, recurrence_cadence_sno,
+        ceiling_amount, variance_tolerance_pct,
         period_start_date, period_end_date, remarks,
         agreement_doc_url,
         // created_by is always the authenticated session's ecno, never client-supplied
         created_by: ecno,
       });
 
-      await invalidateCacheByPattern(req.redisClient, "service_agreement:list:*");
+      // await invalidateCacheByPattern(req.redisClient, "service_agreement:list:*");
       res.json({ success: true, data });
     } catch (error) {
+      console.error("Error in createServiceAgreement:", error);
       res.status(500).json({ success: false, error: error.message });
     }
   }

@@ -30,6 +30,10 @@ function sendSupplierInviteEmail({ to, companyName, suppCode, tempPassword, port
   return callEmailApi("supplier-invite", { to, companyName, suppCode, tempPassword, portalUrl });
 }
 
+function sendNonStaffInviteEmail({ to, fullName, designationName, loginId, tempPassword, portalUrl }) {
+  return callEmailApi("nonstaff-invite", { to, fullName, designationName, loginId, tempPassword, portalUrl });
+}
+
 /** pdfBuffer is a Node Buffer — base64-encoded here since it has to cross HTTP/JSON. */
 function sendPOGeneratedEmail({
   to, companyName, poNo, poDate, requiredDate, items, totalAmount,
@@ -45,4 +49,4 @@ function sendPOGeneratedEmail({
   });
 }
 
-export { sendSupplierInviteEmail, sendPOGeneratedEmail };
+export { sendSupplierInviteEmail, sendNonStaffInviteEmail, sendPOGeneratedEmail };

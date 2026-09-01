@@ -222,6 +222,26 @@ class PurchaseTeamRepository {
     await redisClient.sRem(indexKey, draftId);
     return deleted > 0;
   }
+
+  // ── PR TRACKING HOOK ─────────────────────────────────────────────────────
+  // Additive-only audit row (sql/29_pr_tracking.sql) — logs the "PO sent to
+  // supplier" transition, which nothing recorded before. Never called in a
+  // way that can affect the sendPOEmail response itself.
+  async logPOSentToSupplier(po_basic_sno, status_by, comment) {
+    const request = mssqlPool.request();
+    request.input("po_basic_sno", mssql.Int, po_basic_sno);
+    request.input("status_by", mssql.VarChar(20), status_by);
+    request.input("comment", mssql.VarChar(250), comment ?? null);
+    const result = await request.execute("sp_nt_LogPOSentToSupplier");
+    return result.recordset[0];
+  }
+
+  async getPrNoByPoBasicSno(po_basic_sno) {
+    const request = mssqlPool.request();
+    request.input("po_basic_sno", mssql.Int, po_basic_sno);
+    const result = await request.execute("sp_nt_GetPrNoByPoBasicSno");
+    return result.recordset[0]?.pr_no ?? null;
+  }
 }
 
 export default PurchaseTeamRepository;

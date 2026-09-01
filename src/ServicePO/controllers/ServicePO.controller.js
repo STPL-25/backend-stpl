@@ -97,6 +97,28 @@ class ServicePOController {
     }
   }
 
+  static async reviseServicePOCeiling(req, res) {
+    try {
+      const ecno = req.user_ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const { po_basic_sno, ceiling_amount, variance_tolerance_pct, comments } = req.body;
+      if (!po_basic_sno || (ceiling_amount == null && variance_tolerance_pct == null)) {
+        return res.status(400).json({ success: false, error: "po_basic_sno and at least one of ceiling_amount/variance_tolerance_pct are required" });
+      }
+
+      const data = await ServicePOService.reviseServicePOCeiling({
+        po_basic_sno, ceiling_amount, variance_tolerance_pct, comments,
+        revised_by: ecno,
+      });
+
+      await invalidateCacheByPattern(req.redisClient, "service_po:list:*");
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   static async getServicePORecords(req, res) {
     try {
       const ecno = req.user_ecno;

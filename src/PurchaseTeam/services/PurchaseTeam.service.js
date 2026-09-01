@@ -93,6 +93,28 @@ class PurchaseTeamService {
     }
   }
 
+  // Additive-only PR-tracking hook, called from the controller AFTER
+  // sendPOEmail's own response is already decided — logs the transition and
+  // pushes a live update to the requester's tracking page. Swallows its own
+  // errors so a tracking-side failure can never surface as a PO-send failure.
+  static async logSentToSupplierAndBroadcast({ po_basic_sno, status_by, io }) {
+    if (!po_basic_sno) return;
+    try {
+      await this.repo.logPOSentToSupplier(po_basic_sno, status_by, "PO emailed to supplier");
+      const pr_no = await this.repo.getPrNoByPoBasicSno(po_basic_sno);
+      if (pr_no && io) {
+        io.to(`pr:track:${pr_no}`).emit("pr:track:updated", {
+          pr_no,
+          stage: "PO Sent",
+          status: "SENT_TO_SUPPLIER",
+          payload: { po_basic_sno, status_by },
+        });
+      }
+    } catch (error) {
+      console.error("PR tracking hook (sendPOEmail) failed:", error.message);
+    }
+  }
+
   // Uploads the PO PDF to FTP and, when the caller knows which PO row this
   // belongs to (final-approval flow), persists the URL onto po_request_info
   // so the supplier portal can offer it as a download.

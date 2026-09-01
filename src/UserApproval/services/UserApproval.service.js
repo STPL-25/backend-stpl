@@ -31,8 +31,8 @@ class UserApprovalService {
   }
   */
 
-  static async getUserScreensAndPermissionsJson(ecno) {
-    return this.userMasterRepo.getUserScreensAndPermissionsJson(ecno);
+  static async getUserScreensAndPermissionsJson({ ecno, loginId } = {}) {
+    return this.userMasterRepo.getUserScreensAndPermissionsJson({ ecno, loginId });
   }
 
   static async saveUserPermissionsJson(data) {

@@ -29,7 +29,9 @@ class CommonMasterRepo {
             "ServiceTypeMaster": "sp_nt_GetServiceTypeRecords",
             "ServiceMaster": "sp_nt_GetServiceRecords",
             "BankAccountTypeMaster": "sp_nt_GetBankAccountTypeRecords",
-            "WarehouseLocationMaster": "sp_nt_GetWarehouseLocationRecords"
+            "WarehouseLocationMaster": "sp_nt_GetWarehouseLocationRecords",
+            "RecurrenceCadenceMaster": "sp_nt_GetRecurrenceCadenceRecords",
+            "DesignationMaster": "sp_nt_GetDesignationRecords"
         };
 
         this.createProcedureMap = {
@@ -45,12 +47,16 @@ class CommonMasterRepo {
             'ScreenMaster': 'sp_nt_CreateScreenRecords',
             'ScreenPermission': 'sp_nt_CreatePermissionRecords',
             'ProductMaster': 'sp_nt_CreateProductRecord',
+            'ProductCategoryMaster': 'sp_nt_CreateCategoryRecords',
+            'ProductSubCategoryMaster': 'sp_nt_CreateSubCategoryRecords',
             "WorkflowMaster": "sp_nt_CreateWorkflowMaster",
             "TransportMaster": "sp_nt_CreateTransportRecords",
             "ServiceTypeMaster": "sp_nt_CreateServiceTypeRecords",
             "ServiceMaster": "sp_nt_CreateServiceRecords",
             "BankAccountTypeMaster": "sp_nt_CreateBankAccountTypeRecords",
-            "WarehouseLocationMaster": "sp_nt_CreateWarehouseLocationRecords"
+            "WarehouseLocationMaster": "sp_nt_CreateWarehouseLocationRecords",
+            "RecurrenceCadenceMaster": "sp_nt_CreateRecurrenceCadenceRecords",
+            "DesignationMaster": "sp_nt_CreateDesignationRecords"
         };
 
         this.updateProcedureMap = {
@@ -76,7 +82,10 @@ class CommonMasterRepo {
         'CompanyMaster': { label: 'com_name', value: 'com_sno' },
         'DivisionMaster': { label: 'div_name', value: 'div_sno', extra: ['com_sno'] },
         'BranchMaster': { label: 'brn_name', value: 'brn_sno', extra: ['div_sno', 'com_sno'] },
-        'UomMaster': { label: 'uom_name', value: 'uom_sno' },
+        // extra: needed so the Product form can tell, per selected UOM, whether
+        // it's a non-base unit with no fixed conversion (e.g. Box) — that's
+        // when prod_uom_con_factor must be captured on the product itself.
+        'UomMaster': { label: 'uom_name', value: 'uom_sno', extra: ['uom_base_uom_flag', 'uom_con_factor'] },
         'GSTStateCodeMaster': { label: 'gst_code', value: 'gst_sno' },
         'AcYearMaster': { label: 'ac_year', value: 'ac_sno' },
         'PriorityMaster': { label: 'priority_name', value: 'priority_sno' },
@@ -92,6 +101,8 @@ class CommonMasterRepo {
         // no ac_type_sno FK exists, so the option value must be the text itself.
         'BankAccountTypeMaster': { label: 'account_type_name', value: 'bank_account_type_sno', extra: ['bank_account_type_sno', 'account_type_code'] },
         'WarehouseLocationMaster': { label: 'location_name', value: 'location_sno', extra: ['location_code', 'com_snos', 'div_snos', 'brn_snos'] },
+        'RecurrenceCadenceMaster': { label: 'cadence_name', value: 'recurrence_cadence_sno', extra: ['cadence_code', 'interval_unit', 'interval_value'] },
+        'DesignationMaster': { label: 'designation_name', value: 'designation_sno', extra: ['designation_code'] },
     };
 
     }

@@ -6,6 +6,7 @@ const ServicePOrouter = express.Router();
 ServicePOrouter.post("/createServicePO", ServicePOController.createServicePO);
 ServicePOrouter.post("/createCallOffPO", ServicePOController.createCallOffPO);
 ServicePOrouter.post("/approveServicePO", ServicePOController.approveServicePO);
+ServicePOrouter.post("/reviseServicePOCeiling", ServicePOController.reviseServicePOCeiling);
 ServicePOrouter.get("/getServicePORecords", ServicePOController.getServicePORecords);
 ServicePOrouter.get("/getAllServicePOs", ServicePOController.getAllServicePOs);
 ServicePOrouter.get("/getEligiblePrLinesForServicePO", ServicePOController.getEligiblePrLines);

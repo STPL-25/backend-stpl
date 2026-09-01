@@ -51,6 +51,20 @@ class POController {
         approved_by: ecno,
       });
 
+      // Additive PR-tracking push — sp_nt_ApproveSupplierQuotation always
+      // returns pr_no, and on FINAL_APPROVED this is also the point a PO
+      // gets auto-created, so one event here covers both "Quotation" and
+      // "PO Approval" stages.
+      const trackPrNo = data?.[0]?.pr_no;
+      if (trackPrNo) {
+        req.io.to(`pr:track:${trackPrNo}`).emit("pr:track:updated", {
+          pr_no: trackPrNo,
+          stage: data?.[0]?.is_final === "Y" ? "PO Approval" : "Purchase Quotation",
+          status: data?.[0]?.result,
+          payload: { sq_basic_sno, is_new_po: data?.[0]?.is_new_po },
+        });
+      }
+
       res.json({ success: true, data, message: "successfully" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

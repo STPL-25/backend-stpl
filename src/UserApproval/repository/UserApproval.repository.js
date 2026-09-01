@@ -122,11 +122,14 @@ class UserApprovalRepository {
     // ── nt_user_permissions_json — hierarchy + screen permissions stored as JSON columns ──
     // All reads/writes go through stored procedures (sp_nt_*Json), matching the rest of this module's convention.
 
-    async saveUserPermissionsJson({ user_id, user_ecno, hierarchy, screens }) {
+    // user_id (staff) and login_id (non-staff, dbo.nt_nonstaff_login) are mutually
+    // exclusive — sp_nt_SaveUserPermissionsJson stores whichever one is present.
+    async saveUserPermissionsJson({ user_id, user_ecno, login_id, hierarchy, screens }) {
         try {
             const result = await this.#executeStoredProcedure('sp_nt_SaveUserPermissionsJson', {
-                user_id,
+                user_id: user_id ?? null,
                 ecno: user_ecno ?? null,
+                login_id: login_id ?? null,
                 hierarchy: hierarchy ?? [],
                 screens: screens ?? [],
             });
@@ -136,19 +139,24 @@ class UserApprovalRepository {
         }
     }
 
-    async getUserPermissionsJsonById(userId) {
+    // { userId } for a staff nt_sign_up_sno, or { loginId } for a non-staff login_id — exactly one.
+    async getUserPermissionsJsonById({ userId, loginId } = {}) {
         try {
-            const result = await this.#executeStoredProcedure('sp_nt_GetUserPermissionsJson', { userId });
+            const result = await this.#executeStoredProcedure('sp_nt_GetUserPermissionsJson', {
+                userId: userId ?? null,
+                loginId: loginId ?? null,
+            });
             return result[0] ?? null;
         } catch (error) {
             throw new Error(`Error fetching user permissions by id: ${error.message}`);
         }
     }
 
-    async updateUserPermissionsJson(userId, { hierarchy, screens }) {
+    async updateUserPermissionsJson({ userId, loginId } = {}, { hierarchy, screens }) {
         try {
             const result = await this.#executeStoredProcedure('sp_nt_UpdateUserPermissionsJson', {
-                userId,
+                userId: userId ?? null,
+                loginId: loginId ?? null,
                 hierarchy: hierarchy ?? [],
                 screens: screens ?? [],
             });
@@ -160,9 +168,14 @@ class UserApprovalRepository {
 
     // Returns { rowsAffected, ecno } — ecno is the deleted row's ecno, needed so the
     // controller can push a real-time "permissions revoked" event to that user's socket room.
-    async deleteUserPermissionsJson(userId) {
+    // (Non-staff rows have no ecno, so no socket event fires for them — expected, they don't
+    // use the staff Dashboard shell this event refreshes.)
+    async deleteUserPermissionsJson({ userId, loginId } = {}) {
         try {
-            const result = await this.#executeStoredProcedure('sp_nt_DeleteUserPermissionsJson', { userId });
+            const result = await this.#executeStoredProcedure('sp_nt_DeleteUserPermissionsJson', {
+                userId: userId ?? null,
+                loginId: loginId ?? null,
+            });
             return { rowsAffected: result[0]?.rows_affected ?? 0, ecno: result[0]?.ecno ?? null };
         } catch (error) {
             throw new Error(`Error deleting user permissions: ${error.message}`);
@@ -171,9 +184,12 @@ class UserApprovalRepository {
 
     // Sidebar reader — builds the same flat row shape the old vw_UserPermissions-backed
     // sp_nt_GetUserScreenPermissions returned, but sourced from nt_user_permissions_json.
-    async getUserScreensAndPermissionsJson(ecno) {
+    async getUserScreensAndPermissionsJson({ ecno, loginId } = {}) {
         try {
-            const result = await this.#executeStoredProcedure('sp_nt_GetUserScreensAndPermissionsJson', { ecno });
+            const result = await this.#executeStoredProcedure('sp_nt_GetUserScreensAndPermissionsJson', {
+                ecno: ecno ?? null,
+                loginId: loginId ?? null,
+            });
             return result;
         } catch (error) {
             throw new Error(`Error fetching user screens and permissions: ${error.message}`);

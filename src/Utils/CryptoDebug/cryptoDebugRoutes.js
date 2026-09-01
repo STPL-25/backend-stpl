@@ -88,6 +88,7 @@ router.use((_req, res, next) => {
  */
 router.post("/decrypt", (req, res) => {
     const { d, iv } = req.body ?? {};
+    console.log("req.body", req.body);
     if (typeof d !== "string" || typeof iv !== "string") {
         return res.status(400).json({
             success: false,

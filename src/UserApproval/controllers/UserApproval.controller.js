@@ -152,13 +152,17 @@ class UserApprovalController {
   }
   */
 
-  // Sidebar / login menu — GET /get_user_screens_and_permisssions_json/:ecno
+  // Sidebar / login menu — GET /get_user_screens_and_permisssions_json/:ecno?identity=nonstaff
   // Same response shape as the old handler ({ success, data: { companies, screens } }),
-  // reconstructed from the single nt_user_permissions_json row for this ecno.
+  // reconstructed from the single nt_user_permissions_json row for this ecno/login_id.
+  // ?identity=nonstaff treats the :ecno param as a dbo.nt_nonstaff_login login_id instead
+  // (same convention as get_user_permissions_json below).
   static async getUserScreensAndPermissionsJson(req, res) {
     try {
-      const ecno = req.params.ecno;
-      const data = await UserApprovalService.getUserScreensAndPermissionsJson(ecno);
+      const { ecno } = req.params;
+      const data = await UserApprovalService.getUserScreensAndPermissionsJson(
+         { ecno }
+      );
       const consolidatedData = await UserApprovalController.#consolidatePermissions(data);
       res.json({ success: true, data: consolidatedData });
     } catch (error) {
@@ -253,18 +257,20 @@ class UserApprovalController {
   }
 
   // Create — POST /save_user_permissions_json
+  // user_id (staff, nt_sign_up_sno) and login_id (non-staff, dbo.nt_nonstaff_login) are
+  // mutually exclusive identities — exactly one is expected per request.
   static async saveUserPermissionsJson(req, res) {
     try {
-      const { user_id, user_ecno, hierarchy, screens } = req.body;
-      if (!user_id) {
-        return res.status(400).json({ success: false, error: "user_id is required" });
+      const { user_id, user_ecno, login_id, hierarchy, screens } = req.body;
+      if (!user_id && !login_id) {
+        return res.status(400).json({ success: false, error: "user_id or login_id is required" });
       }
 
-      await UserApprovalService.saveUserPermissionsJson({ user_id, user_ecno, hierarchy, screens });
+      await UserApprovalService.saveUserPermissionsJson({ user_id, user_ecno, login_id, hierarchy, screens });
 
       await invalidateCache(req.redisClient, "ua:permissions");
       if (user_ecno) await invalidateCache(req.redisClient, `ua:user_screens:${user_ecno}`);
-      await invalidateCache(req.redisClient, `ua:user_perms:${user_id}`);
+      await invalidateCache(req.redisClient, `ua:user_perms:${user_id ?? login_id}`);
 
       if (req.io) {
         if (user_ecno) {
@@ -276,6 +282,7 @@ class UserApprovalController {
         req.io.emit("admin:permissions:updated", {
           user_id:   user_id ?? null,
           user_ecno: user_ecno ?? null,
+          login_id:  login_id ?? null,
           timestamp: new Date().toISOString(),
         });
       }
@@ -286,13 +293,18 @@ class UserApprovalController {
     }
   }
 
-  // Read — GET /get_user_permissions_json/:userId
+  // Read — GET /get_user_permissions_json/:userId?identity=nonstaff
   // Returns permissions in the same format the old getUserPermissions returned.
+  // ?identity=nonstaff treats :userId as a dbo.nt_nonstaff_login login_id instead of a
+  // staff nt_sign_up_sno (the default, unchanged for existing callers).
   static async getUserPermissionsJson(req, res) {
     try {
       const userId = req.params.userId;
+      const isNonStaff = req.query.identity === "nonstaff";
       const [row, screenNameById] = await Promise.all([
-        UserApprovalService.getUserPermissionsJsonById(userId),
+        UserApprovalService.getUserPermissionsJsonById(
+          isNonStaff ? { loginId: userId } : { userId }
+        ),
         UserApprovalController.#buildScreenNameMap(),
       ]);
 
@@ -302,13 +314,17 @@ class UserApprovalController {
     }
   }
 
-  // Update — PUT /update_user_permissions_json/:userId
+  // Update — PUT /update_user_permissions_json/:userId?identity=nonstaff
   static async updateUserPermissionsJson(req, res) {
     try {
       const userId = req.params.userId;
+      const isNonStaff = req.query.identity === "nonstaff";
       const { hierarchy, screens, user_ecno } = req.body;
 
-      const rowsAffected = await UserApprovalService.updateUserPermissionsJson(userId, { hierarchy, screens });
+      const rowsAffected = await UserApprovalService.updateUserPermissionsJson(
+        isNonStaff ? { loginId: userId } : { userId },
+        { hierarchy, screens }
+      );
       if (!rowsAffected) {
         return res.status(404).json({ success: false, error: "No existing permissions record found for this user — use save_user_permissions_json to create one" });
       }
@@ -337,11 +353,14 @@ class UserApprovalController {
     }
   }
 
-  // Delete — DELETE /delete_user_permissions_json/:userId
+  // Delete — DELETE /delete_user_permissions_json/:userId?identity=nonstaff
   static async deleteUserPermissionsJson(req, res) {
     try {
       const userId = req.params.userId;
-      const { rowsAffected, ecno } = await UserApprovalService.deleteUserPermissionsJson(userId);
+      const isNonStaff = req.query.identity === "nonstaff";
+      const { rowsAffected, ecno } = await UserApprovalService.deleteUserPermissionsJson(
+        isNonStaff ? { loginId: userId } : { userId }
+      );
 
       await invalidateCache(req.redisClient, "ua:permissions");
       await invalidateCache(req.redisClient, `ua:user_perms:${userId}`);
@@ -370,6 +389,7 @@ class UserApprovalController {
 
   static async #consolidatePermissions(data) {
     const companyMap = new Map();
+    console.log(data)
     const screenMap = new Map();
 
     for (const item of data) {
@@ -413,6 +433,7 @@ class UserApprovalController {
             screen_comp: item.comp,
             screen_img: item.comp_img,
             group_id: item.group_id,
+            group_name: item.group_name,
             permissions: new Map(),
           };
           screenMap.set(item.screen_id, screen);
@@ -442,6 +463,7 @@ class UserApprovalController {
       screen_comp: s.screen_comp,
       screen_img: s.screen_img,
       group_id: s.group_id,
+      group_name: s.group_name,
       permissions: Array.from(s.permissions.values()),
     }));
 
