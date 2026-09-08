@@ -26,6 +26,29 @@ async function callEmailApi(path, body) {
   }
 }
 
+/**
+ * Creates an in-app "bell" notification for a staff ecno — POST /api/notifications,
+ * authenticated the same way as the email routes (x-internal-secret) since this
+ * is a service-to-service call with no user JWT (see notification-service's
+ * internalOrJwtAuth middleware). Returns { sent, reason?, notif? } so the
+ * caller can pull notif.notif_sno through to sp_nt_MarkAgreementNotificationSent.
+ */
+async function createInAppNotification({ ecno, type = "info", title, message, data }) {
+  try {
+    const resp = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", "x-internal-secret": INTERNAL_BROADCAST_SECRET },
+      body: JSON.stringify({ ecno, type, title, message, data }),
+      signal: AbortSignal.timeout(5000),
+    });
+    const body = await resp.json().catch(() => ({}));
+    if (!resp.ok) return { sent: false, reason: body.message || `notification-service HTTP ${resp.status}` };
+    return { sent: true, notif: body.data };
+  } catch (err) {
+    return { sent: false, reason: err.message };
+  }
+}
+
 function sendSupplierInviteEmail({ to, companyName, suppCode, tempPassword, portalUrl }) {
   return callEmailApi("supplier-invite", { to, companyName, suppCode, tempPassword, portalUrl });
 }
@@ -49,4 +72,4 @@ function sendPOGeneratedEmail({
   });
 }
 
-export { sendSupplierInviteEmail, sendNonStaffInviteEmail, sendPOGeneratedEmail };
+export { sendSupplierInviteEmail, sendNonStaffInviteEmail, sendPOGeneratedEmail, createInAppNotification };

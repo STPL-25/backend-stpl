@@ -14,14 +14,22 @@ class ServiceAgreementController {
         com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno,
         rate_amount, rate_uom_sno, recurrence_cadence, recurrence_cadence_sno,
         ceiling_amount, variance_tolerance_pct,
+        po_generation_day, notify_days_before,
         period_start_date, period_end_date, remarks,
       } = req.body;
-console.log("test",com_sno, div_sno, brn_sno, dept_sno, service_sno)
+
       if (!com_sno || !div_sno || !brn_sno || !dept_sno || !service_sno) {
         return res.status(400).json({ success: false, error: "com_sno, div_sno, brn_sno, dept_sno and service_sno are required" });
       }
-      if (!rate_amount || !period_start_date || !period_end_date) {
-        return res.status(400).json({ success: false, error: "rate_amount, period_start_date and period_end_date are required" });
+      if (!period_start_date || !period_end_date) {
+        return res.status(400).json({ success: false, error: "period_start_date and period_end_date are required" });
+      }
+      // Fixed Recurring sends rate_amount, Variable Recurring sends
+      // ceiling_amount instead (sp_nt_CreateServiceAgreement branches on
+      // service type and requires the matching one) — at least one must be
+      // present, the SP is the authority on which.
+      if (!rate_amount && !ceiling_amount) {
+        return res.status(400).json({ success: false, error: "rate_amount (Fixed Recurring) or ceiling_amount (Variable Recurring) is required" });
       }
 
       // Upload the agreement/contract document to FTP. Required — a Service
@@ -42,6 +50,7 @@ console.log("test",com_sno, div_sno, brn_sno, dept_sno, service_sno)
         com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno,
         rate_amount, rate_uom_sno, recurrence_cadence, recurrence_cadence_sno,
         ceiling_amount, variance_tolerance_pct,
+        po_generation_day, notify_days_before,
         period_start_date, period_end_date, remarks,
         agreement_doc_url,
         // created_by is always the authenticated session's ecno, never client-supplied
@@ -52,6 +61,70 @@ console.log("test",com_sno, div_sno, brn_sno, dept_sno, service_sno)
       res.json({ success: true, data });
     } catch (error) {
       console.error("Error in createServiceAgreement:", error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // Edits an existing Approved/Rejected agreement — the edit re-enters
+  // approval (sp_nt_UpdateServiceAgreement flips status back to 'P' and
+  // re-resolves the first approver), it does not take effect immediately.
+  // The document is optional here (unlike create): if no new file is
+  // attached, req.body.agreement_doc_url (the existing URL the list screen
+  // already had from sp_nt_GetServiceAgreements) is carried forward as-is.
+  static async updateServiceAgreement(req, res) {
+    try {
+      const ecno = req.user_ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const {
+        agreement_sno,
+        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno,
+        rate_amount, rate_uom_sno, recurrence_cadence, recurrence_cadence_sno,
+        ceiling_amount, variance_tolerance_pct,
+        po_generation_day, notify_days_before,
+        period_start_date, period_end_date, remarks,
+        agreement_doc_url: existingDocUrl,
+      } = req.body;
+
+      if (!agreement_sno) {
+        return res.status(400).json({ success: false, error: "agreement_sno is required" });
+      }
+      if (!com_sno || !div_sno || !brn_sno || !dept_sno || !service_sno) {
+        return res.status(400).json({ success: false, error: "com_sno, div_sno, brn_sno, dept_sno and service_sno are required" });
+      }
+      if (!period_start_date || !period_end_date) {
+        return res.status(400).json({ success: false, error: "period_start_date and period_end_date are required" });
+      }
+      if (!rate_amount && !ceiling_amount) {
+        return res.status(400).json({ success: false, error: "rate_amount (Fixed Recurring) or ceiling_amount (Variable Recurring) is required" });
+      }
+
+      let agreement_doc_url = existingDocUrl || "";
+      if (Array.isArray(req.files) && req.files.length) {
+        const doc = req.files.find((f) => f.fieldname === "agreement_document") || req.files[0];
+        if (doc) {
+          agreement_doc_url = await ftpUploader.uploadFileIfExists(doc, AGREEMENT_DOC_SUBDIRECTORY);
+        }
+      }
+      if (!agreement_doc_url) {
+        return res.status(400).json({ success: false, error: "Agreement document is required (upload a new one, or keep the existing one)" });
+      }
+
+      const data = await ServiceAgreementService.updateServiceAgreement({
+        agreement_sno,
+        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno,
+        rate_amount, rate_uom_sno, recurrence_cadence, recurrence_cadence_sno,
+        ceiling_amount, variance_tolerance_pct,
+        po_generation_day, notify_days_before,
+        period_start_date, period_end_date, remarks,
+        agreement_doc_url,
+        // edited_by is always the authenticated session's ecno, never client-supplied
+        edited_by: ecno,
+      });
+
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error("Error in updateServiceAgreement:", error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -118,6 +191,24 @@ console.log("test",com_sno, div_sno, brn_sno, dept_sno, service_sno)
       // Zero rows means "no active agreement" (spec §5) — not an error, just
       // nothing to auto-fill with; the caller (PR line) blocks on a null data.
       res.json({ success: true, data: data?.[0] || null });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // Predefined-supplier picker (sql/45_service_master_supplier_and_product.sql)
+  // — reactive fetch keyed on the selected service_sno, used by both the
+  // Fixed/Variable Recurring agreement form and the Vendor Driven daily-entry
+  // form's vendor_sno field.
+  static async getApprovedSuppliersForService(req, res) {
+    try {
+      const { service_sno } = req.query;
+      if (!service_sno) {
+        return res.status(400).json({ success: false, error: "service_sno is required" });
+      }
+
+      const data = await ServiceAgreementService.getApprovedSuppliersForService(Number(service_sno));
+      res.json({ success: true, data });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }

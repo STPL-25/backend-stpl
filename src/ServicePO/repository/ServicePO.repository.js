@@ -79,6 +79,38 @@ class ServicePORepository {
     }
   }
 
+  // Same table/column PurchaseTeamRepository.savePOPdfUrl writes — po_request_info
+  // is shared between the regular and Service PO flows, only the SP layer differs.
+  async savePOPdfUrl(po_basic_sno, url) {
+    try {
+      const request = mssqlPool.request();
+      request.input("po_basic_sno", mssql.Int, po_basic_sno);
+      request.input("url", mssql.NVarChar(500), url);
+      await request.query(
+        `UPDATE po_request_info SET po_pdf_url = @url WHERE po_basic_sno = @po_basic_sno`
+      );
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  // vendor_sno + PO number for a PO that was just approved — sp_nt_ApproveServicePO's
+  // own result set only carries po_basic_sno, not the fields the vendor email needs.
+  async getPoVendorAndNo(po_basic_sno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("po_basic_sno", mssql.Int, po_basic_sno);
+      const result = await request.query(
+        `SELECT vendor_sno, po_df_no
+         FROM po_request_info
+         WHERE po_basic_sno = @po_basic_sno`
+      );
+      return result.recordset[0];
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
   // Item lines for the direct-issue email, in buildPOGeneratedEmail's
   // expected shape (prod_name/unit_name/unit_price/total_amount) rather than
   // po_item_details' own column names.

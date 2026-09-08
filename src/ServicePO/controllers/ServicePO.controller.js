@@ -97,6 +97,48 @@ class ServicePOController {
     }
   }
 
+  // ── EMAIL THE GENERATED SERVICE PO PDF TO THE SUPPLIER ──────────────────
+  // Mirrors PurchaseTeamController.sendPOEmail exactly — called by
+  // ServicePOApprovalScreen right after a final-stage approval, with the PDF
+  // it just rendered client-side.
+  static async sendServicePOEmail(req, res) {
+    try {
+      const file = Array.isArray(req.files)
+        ? req.files.find((f) => f.fieldname === "po_pdf") || req.files[0]
+        : null;
+      if (!file) return res.status(400).json({ success: false, error: "po_pdf file is required" });
+
+      const { vendor_sno, po_no, po_date, terms_conditions, delivery_address, po_basic_sno } = req.body;
+      if (!vendor_sno || !po_no) {
+        return res.status(400).json({ success: false, error: "vendor_sno and po_no are required" });
+      }
+
+      let items = [];
+      try {
+        items = JSON.parse(req.body.items || "[]");
+      } catch {
+        items = [];
+      }
+
+      const data = await ServicePOService.sendServicePOEmail({
+        vendor_sno: Number(vendor_sno),
+        po_no,
+        po_date,
+        terms_conditions,
+        delivery_address,
+        items,
+        pdfBuffer: file.buffer,
+        pdfFilename: file.originalname || `${po_no}.pdf`,
+        po_basic_sno: po_basic_sno ? Number(po_basic_sno) : undefined,
+      });
+
+      await invalidateCacheByPattern(req.redisClient, "service_po:list:*");
+      res.json({ success: true, data, message: "Service Purchase Order emailed to supplier" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   static async reviseServicePOCeiling(req, res) {
     try {
       const ecno = req.user_ecno;

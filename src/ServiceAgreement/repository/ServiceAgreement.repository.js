@@ -18,8 +18,11 @@ class ServiceAgreementRepository {
   }
 
   async createServiceAgreement(payload) {
-    console.log("Creating service agreement with payload:", payload);
     return this.executeJsonProcedure("sp_nt_CreateServiceAgreement", payload);
+  }
+
+  async updateServiceAgreement(payload) {
+    return this.executeJsonProcedure("sp_nt_UpdateServiceAgreement", payload);
   }
 
   async approveServiceAgreement(approvalData) {
@@ -33,6 +36,13 @@ class ServiceAgreementRepository {
   // The PR-line auto-fill lookup (spec §5) — always all five scope fields.
   async getActiveServiceAgreement(scope) {
     return this.executeJsonProcedure("sp_nt_GetActiveServiceAgreement", scope);
+  }
+
+  // Predefined-supplier picker (sql/45_service_master_supplier_and_product.sql)
+  // — scoped to whichever suppliers were mapped to this service on Service
+  // Master, replacing the globally-scoped VendorMaster for this one field.
+  async getApprovedSuppliersForService(service_sno) {
+    return this.executeJsonProcedure("sp_nt_GetApprovedSuppliersForService", { service_sno });
   }
 
   // Pending Service Agreements for the logged-in approver.
@@ -72,6 +82,23 @@ class ServiceAgreementRepository {
     } catch (error) {
       throw new Error(`Database error: ${error.message}`);
     }
+  }
+
+  // ── Notify-before-generation sweep (sql/39_service_agreement_scheduling_and_notifications.sql) ─
+  // Claims due reminders as PENDING and returns them; the job then calls
+  // notification-service per row and reports back via markAgreementNotificationSent.
+  async getAgreementsDueForNotification() {
+    try {
+      const request = mssqlPool.request();
+      const result = await request.execute("sp_nt_GetAgreementsDueForNotification");
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async markAgreementNotificationSent(payload) {
+    return this.executeJsonProcedure("sp_nt_MarkAgreementNotificationSent", payload);
   }
 }
 

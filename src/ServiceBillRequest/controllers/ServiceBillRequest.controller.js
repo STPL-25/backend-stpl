@@ -12,14 +12,21 @@ class ServiceBillRequestController {
 
       const {
         agreement_sno, billing_period_start, billing_period_end,
-        invoice_no, invoice_date, invoice_amount, remarks,
+        invoice_no, invoice_date, remarks,
       } = req.body;
 
       if (!agreement_sno || !billing_period_start || !billing_period_end) {
         return res.status(400).json({ success: false, error: "agreement_sno, billing_period_start and billing_period_end are required" });
       }
-      if (!invoice_amount || Number(invoice_amount) <= 0) {
-        return res.status(400).json({ success: false, error: "Enter a valid invoice_amount" });
+
+      let items = [];
+      try {
+        items = JSON.parse(req.body.items || "[]");
+      } catch {
+        items = [];
+      }
+      if (!Array.isArray(items) || items.length === 0) {
+        return res.status(400).json({ success: false, error: "At least one item (service, qty, unit_price) is required" });
       }
 
       // Upload the invoice document to FTP — required, same pattern as
@@ -38,7 +45,7 @@ class ServiceBillRequestController {
 
       const data = await ServiceBillRequestService.createServiceBillRequest({
         agreement_sno, billing_period_start, billing_period_end,
-        invoice_no, invoice_date, invoice_amount, invoice_doc_url, remarks,
+        invoice_no, invoice_date, invoice_doc_url, remarks, items,
         // created_by is always the authenticated session's ecno, never client-supplied
         created_by: ecno,
       });

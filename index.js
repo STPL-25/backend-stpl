@@ -29,10 +29,13 @@ import ServicePOrouter from "./src/ServicePO/routes/ServicePO.routes.js";
 import ServiceAgreementRouter from "./src/ServiceAgreement/routes/ServiceAgreement.routes.js";
 import { startServiceAgreementScheduledJobs } from "./src/ServiceAgreement/jobs/RecurringPrJob.js";
 import ServiceBillRequestRouter from "./src/ServiceBillRequest/routes/ServiceBillRequest.routes.js";
+import ServiceVendorEntryRouter from "./src/ServiceVendorEntry/routes/ServiceVendorEntry.routes.js";
+import ServiceVendorKycRouter from "./src/ServiceVendorKyc/routes/ServiceVendorKyc.routes.js";
 import PRTrackingRouter from "./src/PRTracking/routes/PRTracking.routes.js";
 import StorePOrouter from "./src/StorePO/routes/StorePO.routes.js";
 import PurchaseTeamRouter from "./src/PurchaseTeam/routes/PurchaseTeam.routes.js";
 import NonStaffUserRouter from "./src/NonStaffUser/routes/NonStaffUser.routes.js";
+import TermsConditionsRouter from "./src/TermsConditions/routes/TermsConditions.routes.js";
 import GRNRouter from "./src/GRN/routes/GRN.routes.js";
 import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
@@ -181,6 +184,14 @@ io.on("connection", (socket) => {
 
     socket.on("leave-service_bill_request-approval", () => {
         socket.leave("service_bill_request:approval");
+    });
+
+    socket.on("join-service_vendor_kyc-approval", () => {
+        socket.join("service_vendor_kyc:approval");
+    });
+
+    socket.on("leave-service_vendor_kyc-approval", () => {
+        socket.leave("service_vendor_kyc:approval");
     });
 
     // Purchase Team room: live PR-split updates on the purchase screen sidebar
@@ -392,9 +403,12 @@ app.use("/api/po",                    verifyJWT,                    POrouter);
 app.use("/api/service_po",            verifyJWT,             ServicePOrouter);
 app.use("/api/service_agreement",     verifyJWT,      ServiceAgreementRouter);
 app.use("/api/service_bill_request",  verifyJWT,   ServiceBillRequestRouter);
+app.use("/api/service_vendor_entry",  verifyJWT,   ServiceVendorEntryRouter);
+app.use("/api/service_vendor_kyc",    verifyJWT,   ServiceVendorKycRouter);
 app.use("/api/pr_tracking",           verifyJWT,          PRTrackingRouter);
 // app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
 app.use("/api/purchase_team",       verifyJWT,       PurchaseTeamRouter);
+app.use("/api/terms_conditions",    verifyJWT,       TermsConditionsRouter);
 // Not globally wrapped in verifyJWT — per-route auth inside the router
 // itself (create/list are staff-only; login is public and issues the same
 // session cookie as staff login, so a non-staff user lands on the same

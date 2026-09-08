@@ -31,7 +31,10 @@ class CommonMasterRepo {
             "BankAccountTypeMaster": "sp_nt_GetBankAccountTypeRecords",
             "WarehouseLocationMaster": "sp_nt_GetWarehouseLocationRecords",
             "RecurrenceCadenceMaster": "sp_nt_GetRecurrenceCadenceRecords",
-            "DesignationMaster": "sp_nt_GetDesignationRecords"
+            "DesignationMaster": "sp_nt_GetDesignationRecords",
+            "VendorMaster": "sp_nt_GetApprovedVendorsForServicePicker",
+            "ServiceMasterSupplierMapping": "sp_nt_GetServiceMasterSupplierMappings",
+            "PaymentModeMaster": "sp_nt_GetPaymentModeRecords"
         };
 
         this.createProcedureMap = {
@@ -56,7 +59,10 @@ class CommonMasterRepo {
             "BankAccountTypeMaster": "sp_nt_CreateBankAccountTypeRecords",
             "WarehouseLocationMaster": "sp_nt_CreateWarehouseLocationRecords",
             "RecurrenceCadenceMaster": "sp_nt_CreateRecurrenceCadenceRecords",
-            "DesignationMaster": "sp_nt_CreateDesignationRecords"
+            "DesignationMaster": "sp_nt_CreateDesignationRecords",
+            "ServiceMasterSupplierMapping": "sp_nt_CreateServiceMasterSupplierMapping",
+            "SupplierCatagoryMaster": "sp_nt_CreateSupplierCategoryRecords",
+            "PaymentModeMaster": "sp_nt_CreatePaymentModeRecords"
         };
 
         this.updateProcedureMap = {
@@ -94,15 +100,24 @@ class CommonMasterRepo {
         'ProductMaster': { label: 'prod_name', value: 'prod_sno' },
         'CategoryMaster': { label: 'cat_name', value: 'cat_sno' },
         'SubCategoryMaster': { label: 'subcat_name', value: 'subcat_sno' },
+        // Lets the Product form (and anywhere else ProductSubCategoryMaster
+        // options are consumed) see each subcategory's Regular/Non-Regular
+        // flag without a second lookup — was previously undefined here and
+        // fell through to the generic name/id heuristic below.
+        'ProductSubCategoryMaster': { label: 'subcat_name', value: 'subcat_sno', extra: ['subcat_stock_type'] },
+        'SupplierCatagoryMaster': { label: 'supp_cat_name', value: 'supp_cat_code' },
+        'PaymentModeMaster': { label: 'payment_mode_name', value: 'payment_mode_code' },
         'TransportMaster': { label: 'transport_name', value: 'transport_sno' },
         'ServiceTypeMaster': { label: 'service_type_name', value: 'service_type_sno', extra: ['service_type_code', 'requires_ceiling_amount', 'requires_variance_tolerance'] },
-        'ServiceMaster': { label: 'service_name', value: 'service_sno', extra: ['service_type_sno', 'default_uom_sno', 'is_recurring', 'recurrence_cadence'] },
+        'ServiceMaster': { label: 'service_name', value: 'service_sno', extra: ['service_type_sno', 'default_uom_sno', 'is_recurring', 'recurrence_cadence', 'default_product_sno', 'product_name', 'product_description', 'product_hsn_code', 'product_uom_name'] },
         // value = account_type_name (not the sno) — KYC's ac_type column stores free text,
         // no ac_type_sno FK exists, so the option value must be the text itself.
         'BankAccountTypeMaster': { label: 'account_type_name', value: 'bank_account_type_sno', extra: ['bank_account_type_sno', 'account_type_code'] },
         'WarehouseLocationMaster': { label: 'location_name', value: 'location_sno', extra: ['location_code', 'com_snos', 'div_snos', 'brn_snos'] },
         'RecurrenceCadenceMaster': { label: 'cadence_name', value: 'recurrence_cadence_sno', extra: ['cadence_code', 'interval_unit', 'interval_value'] },
         'DesignationMaster': { label: 'designation_name', value: 'designation_sno', extra: ['designation_code'] },
+        'VendorMaster': { label: 'company_name', value: 'kyc_basic_info_sno', extra: ['supp_code', 'email', 'mobile_number'] },
+        'ServiceMasterSupplierMapping': { label: 'service_name', value: 'mapping_sno', extra: ['service_sno', 'kyc_basic_info_sno', 'company_name', 'supp_code'] },
     };
 
     }
@@ -151,6 +166,7 @@ class CommonMasterRepo {
             console.log(result)
             return result;
         } catch (error) {
+            console.error(`Error creating ${masterField}:`, error);
             throw new Error(`Error creating ${masterField}: ${error.message}`);
         }
     }

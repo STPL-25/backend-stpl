@@ -1,0 +1,46 @@
+-- ============================================================
+-- Terms & Conditions Master — no longer a standalone sidebar screen
+-- Database : Non_Trade (MSSQL, 10.0.21.8)
+--
+-- Why this exists
+-- ---------------
+-- Per product decision, Terms & Conditions Master moved from its own
+-- sidebar entry (sql/36_terms_conditions_master_screen.sql, screen_id
+-- resolved live to 52) into a tile inside the existing generic "Masters"
+-- screen instead (nt-frontend-stpl masterItems in FieldDatas/Data.tsx,
+-- rendered via MasterPageScreen.tsx — comp stays a bespoke component, not
+-- the generic DynamicTable/common_master pipeline, so Edit/Delete keep
+-- working and the Company/Division/Branch/Department picker + point-by-
+-- point list still render).
+--
+-- The dbo.screens row for comp='TermsConditionsMaster' is now dead: nothing
+-- in the frontend sets activeItem to it any more (ComponentDatas.tsx's
+-- entry was removed), so if it stayed active + grantable it would be a
+-- confusing dangling menu item that either never appears (nobody's
+-- sidebar-building code references it) or 404s if something did reference
+-- it. Soft-deleted here (is_active='N'), not dropped — same convention as
+-- every other screen deactivation in this codebase (row kept for audit
+-- history, see sql/49 ServiceBillRequestApprovalScreen's is_active='N' for
+-- a live precedent).
+--
+-- The staff-only restriction that row was providing (non-staff must never
+-- reach this screen) is now enforced a different way instead: the
+-- TermsConditionsMaster tile is filtered out of the non-staff session's
+-- Masters grid client-side (MasterPageScreen.tsx / Data.tsx staffOnly
+-- flag), AND backend-stpl/src/TermsConditions/routes/TermsConditions.routes.js
+-- now rejects any non-staff caller at the API layer directly (403) — since
+-- there's no longer a screens_json grant to strip a stray entry out of.
+-- The staff_only column + sp_nt_GetUserScreensAndPermissionsJson change
+-- from sql/37_terms_conditions_staff_only.sql are left in place; they're
+-- generic infrastructure for any FUTURE standalone staff-only screen, and
+-- do no harm sitting unused for this one now.
+-- ============================================================
+
+UPDATE dbo.screens SET is_active = 'N' WHERE comp = 'TermsConditionsMaster';
+GO
+
+-- ============================================================
+-- After running, confirm:
+--   SELECT screen_id, comp, is_active FROM dbo.screens WHERE comp = 'TermsConditionsMaster';
+--   -- should show is_active = 'N'
+-- ============================================================

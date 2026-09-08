@@ -58,6 +58,8 @@ const REQUIRED_FIELDS = {
   WarehouseLocationMaster: ["location_code", "location_name", "com_snos"],
   RecurrenceCadenceMaster: ["cadence_code", "cadence_name", "interval_unit", "interval_value"],
   DesignationMaster: ["designation_code", "designation_name"],
+  SupplierCatagoryMaster: ["supp_cat_name"],
+  PaymentModeMaster: ["payment_mode_code", "payment_mode_name"],
 };
 
 // Fields that are only mandatory conditionally on another field's value.
