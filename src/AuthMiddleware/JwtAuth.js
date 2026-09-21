@@ -29,6 +29,7 @@ function getUserFromPayload(payload) {
 }
 
 function getEcnoFromUser(user) {
+  console.log("User object from JWT payload:", user);
   const normalizedUser = Array.isArray(user) ? user[0] : user;
   // Non-staff sessions have no ecno — their login_id is the equivalent
   // identity everywhere req.user_ecno is used as "the current actor"

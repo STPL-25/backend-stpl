@@ -26,8 +26,22 @@ class PurchaseTeamRepository {
   }
 
   // ── GET APPROVED PRs FOR PURCHASE TEAM ──────────────────────────────────
-  async getApprovedPRs(filters = {}) {
-    return this.executeStoredProcedure("sp_nt_GetApprovedPRsForPurchase", filters);
+  // sp_nt_GetApprovedPRsForPurchase takes @HierarchyJson directly (not the
+  // generic @jsonInput blob every other proc here uses) — bind it by name.
+  async getApprovedPRs(hierarchyJson) {
+    try {
+      const request = mssqlPool.request();
+      request.input("HierarchyJson", mssql.NVarChar(mssql.MAX), JSON.stringify(hierarchyJson ?? []));
+      const result = await request.execute("sp_nt_GetApprovedPRsForPurchase");
+      return result.recordset;
+    } catch (error) {
+      console.log(error);
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async getVendorDrivenApprovedPRs(filters = {}) {
+    return this.executeStoredProcedure("sp_nt_GetVendorDrivenApprovedPRs", filters);
   }
 
   // ── GET APPROVED VENDORS (from KYC) ─────────────────────────────────────
@@ -76,6 +90,10 @@ class PurchaseTeamRepository {
   // ── CREATE PO FROM QUOTATION ────────────────────────────────────────────
   async createPOFromQuotation(poData) {
     return this.executeStoredProcedure("sp_nt_CreatePOFromQuotation", poData);
+  }
+
+  async createVendorDrivenPO(poData) {
+    return this.executeStoredProcedure("sp_nt_CreateVendorDrivenPOFromPR", poData);
   }
 
   // Vendor contact for the "PO generated" email — vendor_sno on a PO is the

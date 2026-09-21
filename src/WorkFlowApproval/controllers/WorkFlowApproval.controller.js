@@ -28,6 +28,19 @@ class WorkFlowApprovalController {
     }
   }
 
+  // GET /getEntityTypes — every registerable entity_type (including ones
+  // with no workflow configured yet), so Approval Workflow Manager's
+  // "Entity Type" field can offer a brand-new type, not just ones already
+  // in use.
+  static async getEntityTypes(req, res) {
+    try {
+      const data = await WorkFlowApprovalService.getEntityTypes();
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   // GET /getWorkflowByEntity/:entityType
   static async getWorkflowByEntity(req, res) {
     try {

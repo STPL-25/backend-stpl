@@ -3,8 +3,8 @@ import PORepository from "../repository/PO.repository.js";
 class POService {
   static PORepository = new PORepository();
 
-  static async getPoRecords(ecno) {
-    return this.PORepository.getPoRecords(ecno);
+  static async getPoRecords(ecno, hierarchyJson) {
+    return this.PORepository.getPoRecords(ecno, hierarchyJson);
   }
 
   static async approvePo(approvalData) {

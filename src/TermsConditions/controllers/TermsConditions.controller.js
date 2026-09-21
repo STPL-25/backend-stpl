@@ -4,7 +4,7 @@ class TermsConditionsController {
   // GET /getTermsConditions — full grid list for the admin screen
   static async getAll(req, res) {
     try {
-      const data = await TermsConditionsService.getAll();
+      const data = await TermsConditionsService.getAll(req.hierarchyJson);
       res.json({ success: true, data });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

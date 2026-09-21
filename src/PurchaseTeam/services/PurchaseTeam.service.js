@@ -11,8 +11,12 @@ const PO_PDF_SUBDIRECTORY = "NON_TRADE_DATAS/PO_DATAS";
 class PurchaseTeamService {
   static repo = new PurchaseTeamRepository();
 
-  static async getApprovedPRs(filters) {
-    return this.repo.getApprovedPRs(filters);
+  static async getApprovedPRs(hierarchyJson) {
+    return this.repo.getApprovedPRs(hierarchyJson);
+  }
+
+  static async getVendorDrivenApprovedPRs(filters) {
+    return this.repo.getVendorDrivenApprovedPRs(filters);
   }
 
   static async getApprovedVendors(filters) {
@@ -33,6 +37,10 @@ class PurchaseTeamService {
 
   static async createPOFromQuotation(poData) {
     return this.repo.createPOFromQuotation(poData);
+  }
+
+  static async createVendorDrivenPO(poData) {
+    return this.repo.createVendorDrivenPO(poData);
   }
 
   // Emails the supplier the PO PDF the frontend already generated (it has

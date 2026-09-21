@@ -17,9 +17,11 @@ class NonStaffUserRepository {
     }
   }
 
-  async createLogin({ login_id, full_name, designation_sno, email, phone, password_hash, created_by }) {
+  // login_id is generated server-side by the stored procedure (dbo.seq_nonstaff_login_id) —
+  // never accepted from the caller, so it can't collide with a staff ecno.
+  async createLogin({ full_name, designation_sno, email, phone, password_hash, created_by }) {
     return this.executeStoredProcedure("sp_nt_CreateNonStaffLogin", {
-      login_id, full_name, designation_sno, email, phone, password_hash, created_by,
+      full_name, designation_sno, email, phone, password_hash, created_by,
     });
   }
 

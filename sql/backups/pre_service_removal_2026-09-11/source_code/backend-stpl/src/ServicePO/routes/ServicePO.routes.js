@@ -1,0 +1,16 @@
+import express from "express";
+import ServicePOController from "../controllers/ServicePO.controller.js";
+import { upload } from "../../Utils/ImagesUpload/ImgUpload.js";
+
+const ServicePOrouter = express.Router();
+
+ServicePOrouter.post("/createServicePO", ServicePOController.createServicePO);
+ServicePOrouter.post("/createCallOffPO", ServicePOController.createCallOffPO);
+ServicePOrouter.post("/approveServicePO", ServicePOController.approveServicePO);
+ServicePOrouter.post("/sendServicePOEmail", upload.any(), ServicePOController.sendServicePOEmail);
+ServicePOrouter.post("/reviseServicePOCeiling", ServicePOController.reviseServicePOCeiling);
+ServicePOrouter.get("/getServicePORecords", ServicePOController.getServicePORecords);
+ServicePOrouter.get("/getAllServicePOs", ServicePOController.getAllServicePOs);
+ServicePOrouter.get("/getEligiblePrLinesForServicePO", ServicePOController.getEligiblePrLines);
+
+export default ServicePOrouter;

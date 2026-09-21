@@ -1,5 +1,6 @@
 import express from "express";
 import TermsConditionsController from "../controllers/TermsConditions.controller.js";
+import { attachHierarchyScope } from "../../Middleware/hierarchyScope.js";
 
 const TermsConditionsRouter = express.Router();
 
@@ -18,7 +19,7 @@ function requireStaffOnly(req, res, next) {
 }
 TermsConditionsRouter.use(requireStaffOnly);
 
-TermsConditionsRouter.get("/getTermsConditions",           TermsConditionsController.getAll);
+TermsConditionsRouter.get("/getTermsConditions",  attachHierarchyScope, TermsConditionsController.getAll);
 TermsConditionsRouter.get("/getDefaultTermsConditions",    TermsConditionsController.getDefault);
 TermsConditionsRouter.post("/createTermsConditions",       TermsConditionsController.create);
 TermsConditionsRouter.put("/updateTermsConditions",        TermsConditionsController.update);

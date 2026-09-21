@@ -3,11 +3,13 @@ import KYCServices from "../services/Kyc.service.js";
 import { invalidateCache } from "../../Middleware/redisCache.js";
 import { decryptFormPayload } from "../../Middleware/payloadCrypto.js";
 import { validateKycCreate } from "../validation/kycValidation.js";
+import CommonMasterServices from "../../Masters/Services/CommonMasterServices.js";
 
-function getAuthUser(req) {
-  const user = Array.isArray(req.user) ? req.user[0] : req.user;
-  return user;
-}
+// Only these masters are exposed to anonymous /api/public_kyc callers —
+// the underlying getRequiredMasterForOptions is otherwise unrestricted
+// (any staff-authenticated masterField), so a public request must be
+// filtered down explicitly rather than trusting the client's field list.
+const PUBLIC_KYC_MASTER_FIELDS = ["SupplierCatagoryMaster", "BusinessDetailsMatster", "BankAccountTypeMaster"];
 
 class KYCControllers {
   static async getAllKYCRecords(req, res) {
@@ -21,10 +23,9 @@ class KYCControllers {
 
   static async getPendingApprovals(req, res) {
     try {
-      const user = getAuthUser(req);
-
-      console.log(req.user_ecno)
-      const data = await KYCServices.getPendingApprovals(user?.ecno);
+      // req.user_ecno falls back to login_id for non-staff sessions, which have no ecno
+      console.log("Authenticated user ecno:", req.user_ecno);
+      const data = await KYCServices.getPendingApprovals(req.user_ecno);
       res.json({ success: true, data, count: data.length });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -176,6 +177,26 @@ class KYCControllers {
     } catch (error) {
       console.log(error)
       res.status(error.statusCode ?? 500).json({ success: false, error: error.message });
+    }
+  }
+
+  // Public master-option lookup for the anonymous /supplier_kyc form — same
+  // underlying service as /api/common_master/getRequiredMasterForOptions
+  // (verifyJWT-protected), restricted to PUBLIC_KYC_MASTER_FIELDS so a
+  // public visitor can't fish for unrelated master data through this route.
+  static async getPublicMasterOptions(req, res) {
+    try {
+      const requested = Array.isArray(req.body?.masterFields) ? req.body.masterFields : [];
+      const masterFields = requested.filter((f) => PUBLIC_KYC_MASTER_FIELDS.includes(f));
+
+      if (masterFields.length === 0) {
+        return res.status(400).json({ success: false, error: "No valid masterFields requested" });
+      }
+
+      const data = await CommonMasterServices.getRequiredMasterForOptions(masterFields);
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
     }
   }
 

@@ -6,9 +6,8 @@ class NonStaffUserController {
   static async createUser(req, res) {
     try {
       console.log("Received request to create non-staff user:", req.body);
-      const { login_id, full_name, designation_sno, email, phone } = req.body ?? {};
+      const { full_name, designation_sno, email, phone } = req.body ?? {};
       const result = await NonStaffUserService.createUser({
-        login_id,
         full_name,
         designation_sno,
         email,

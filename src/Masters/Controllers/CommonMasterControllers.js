@@ -5,7 +5,7 @@ class CommonMasterControllers {
   static async getAllMasterData(req, res) {
     try {
       const { masterField } = req.params;
-      const data = await CommonMasterServices.getAllCommonMasters(masterField);
+      const data = await CommonMasterServices.getAllCommonMasters(masterField, req.hierarchyJson);
       res.json({
         success: true,
         data: data,
@@ -171,7 +171,8 @@ class CommonMasterControllers {
   static async getRequiredMasterForOptions(req, res) {
     try {
       const data = await CommonMasterServices.getRequiredMasterForOptions(
-        req.body.masterFields
+        req.body.masterFields,
+        req.hierarchyJson
       );
 
       res.json({

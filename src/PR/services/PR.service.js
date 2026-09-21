@@ -7,8 +7,12 @@ class PRService {
     return this.PRRepository.createPrRecords(prData);
   }
 
-  static async getPrRecords(ecno) {
-    return this.PRRepository.getPrRecords(ecno);
+  static async createVendorDrivenPrRecords(prData) {
+    return this.PRRepository.createVendorDrivenPrRecords(prData);
+  }
+
+  static async getPrRecords(ecno, hierarchyJson) {
+    return this.PRRepository.getPrRecords(ecno, hierarchyJson);
   }
 
   static async approvePr(approvalData) {

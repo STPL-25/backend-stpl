@@ -2,12 +2,13 @@ import express from "express";
 import PRController from "../controllers/PR.controller.js";
 import { upload } from "../../Utils/ImagesUpload/ImgUpload.js";
 import { cacheMiddleware } from "../../Middleware/redisCache.js";
+import { attachHierarchyScope } from "../../Middleware/hierarchyScope.js";
 
 const PRrouter = express.Router();
 
 // Existing routes
 PRrouter.post("/createPrRecords", upload.any(), PRController.createPrRecords);
-PRrouter.get("/getPrRecords",  PRController.getPrRecords);
+PRrouter.get("/getPrRecords", attachHierarchyScope, PRController.getPrRecords);
 PRrouter.post("/approvePr", PRController.approvePr);
 
 // Draft routes (Redis-backed, per-user)

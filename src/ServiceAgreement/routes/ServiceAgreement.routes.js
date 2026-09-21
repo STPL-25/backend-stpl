@@ -8,8 +8,7 @@ ServiceAgreementRouter.post("/createServiceAgreement", upload.any(), ServiceAgre
 ServiceAgreementRouter.post("/updateServiceAgreement", upload.any(), ServiceAgreementController.updateServiceAgreement);
 ServiceAgreementRouter.post("/approveServiceAgreement", ServiceAgreementController.approveServiceAgreement);
 ServiceAgreementRouter.get("/getServiceAgreements", ServiceAgreementController.getServiceAgreements);
-ServiceAgreementRouter.get("/getActiveServiceAgreement", ServiceAgreementController.getActiveServiceAgreement);
-ServiceAgreementRouter.get("/getApprovedSuppliersForService", ServiceAgreementController.getApprovedSuppliersForService);
 ServiceAgreementRouter.get("/getServiceAgreementsForApproval", ServiceAgreementController.getServiceAgreementsForApproval);
+ServiceAgreementRouter.get("/getServiceAgreementHistory", ServiceAgreementController.getServiceAgreementHistory);
 
 export default ServiceAgreementRouter;

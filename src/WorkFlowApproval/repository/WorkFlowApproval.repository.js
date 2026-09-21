@@ -55,6 +55,18 @@ class WorkFlowApprovalRepository {
     }
   }
 
+  // entity_master — every registerable entity_type, including ones with no
+  // workflow configured yet. getWorkflows() alone can't offer those in the
+  // "Entity Type" dropdown since it only derives options from EXISTING
+  // workflow rows — a brand-new type would be unselectable otherwise.
+  async getEntityTypes() {
+    try {
+      return await this.#executeQuery("sp_nt_GetEntityRecords");
+    } catch {
+      return [];
+    }
+  }
+
   async getWorkflowByEntity(entityType) {
     try {
       return await this.#executeQuery("sp_nt_GetWorkflowByEntity", { entity_type: entityType });

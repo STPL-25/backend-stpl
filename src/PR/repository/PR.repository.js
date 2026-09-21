@@ -15,6 +15,7 @@ class PRRepository {
 
     this.createProcedureMap = {
       createPrRecords: "usp_InsertPurchaseRequest",
+      createVendorDrivenPrRecords: "usp_InsertVendorDrivenPurchaseRequest",
     };
   }
 
@@ -46,10 +47,28 @@ class PRRepository {
     }
   }
 
-  async getPrRecords(ecno) {
+  async createVendorDrivenPrRecords(prData) {
+
+    console.log("Creating vendor-driven PR records with data:", prData);
+    try {
+      const request = mssqlPool.request();
+      request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify(prData));
+      request.output("pr_no", mssql.VarChar(20));
+      const result = await request.execute(this.createProcedureMap.createVendorDrivenPrRecords);
+      return {
+        recordset: result.recordset,
+        pr_no: result.output.pr_no,
+      };
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async getPrRecords(ecno, hierarchyJson) {
     try {
       const request = mssqlPool.request();
       request.input("Ecno", mssql.VarChar(50), ecno);
+      request.input("HierarchyJson", mssql.NVarChar(mssql.MAX), JSON.stringify(hierarchyJson ?? []));
       const result = await request.execute(this.storedProcedureMap["getPrRecords"]);
       return result.recordset;
     } catch (error) {

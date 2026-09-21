@@ -4,8 +4,8 @@ class CommonMasterServices {
     static commonMasterRepository = new CommonMasterRepo();
     static hierarchyMasterRepository = new HierarchyMasterRepo();
 
-    static async getAllCommonMasters(masterField) {
-        return this.commonMasterRepository.getAllCommonMasters(masterField);
+    static async getAllCommonMasters(masterField, hierarchyJson) {
+        return this.commonMasterRepository.getAllCommonMasters(masterField, hierarchyJson);
     }
 
     static async getCommonMasterById(id, masterField) {
@@ -26,8 +26,8 @@ class CommonMasterServices {
     static async getAllMasterDataByHierarchy(data) {
         return this.hierarchyMasterRepository.getAllHierarchyData(data);
     }
-    static async getRequiredMasterForOptions(data) {
-        return this.commonMasterRepository.getRequiredMasterForOptions(data);
+    static async getRequiredMasterForOptions(data, hierarchyJson) {
+        return this.commonMasterRepository.getRequiredMasterForOptions(data, hierarchyJson);
     }
 }
 export default CommonMasterServices;

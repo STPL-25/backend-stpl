@@ -221,19 +221,21 @@ class UserApprovalController {
 
   static #rowToPermissionsResponse(row, screenNameById) {
     if (!row) {
-      return { success: true, exists: false, permissions: {}, companies: [], divisions: [], branches: [] };
+      return { success: true, exists: false, permissions: {}, companies: [], divisions: [], branches: [], departments: [] };
     }
 
     const hierarchy = row.hierarchy_json ? JSON.parse(row.hierarchy_json) : [];
     const screensData = row.screens_json ? JSON.parse(row.screens_json) : [];
 
-    const companiesSet = new Set();
-    const divisionsSet = new Set();
-    const branchesSet  = new Set();
+    const companiesSet   = new Set();
+    const divisionsSet   = new Set();
+    const branchesSet    = new Set();
+    const departmentsSet = new Set();
     for (const h of hierarchy) {
-      if (h.com_sno != null) companiesSet.add(String(h.com_sno));
-      if (h.div_sno != null) divisionsSet.add(String(h.div_sno));
-      if (h.brn_sno != null) branchesSet.add(String(h.brn_sno));
+      if (h.com_sno  != null) companiesSet.add(String(h.com_sno));
+      if (h.div_sno  != null) divisionsSet.add(String(h.div_sno));
+      if (h.brn_sno  != null) branchesSet.add(String(h.brn_sno));
+      if (h.dept_sno != null) departmentsSet.add(String(h.dept_sno));
     }
 
     const permissions = {};
@@ -253,6 +255,7 @@ class UserApprovalController {
       companies: Array.from(companiesSet),
       divisions: Array.from(divisionsSet),
       branches: Array.from(branchesSet),
+      departments: Array.from(departmentsSet),
     };
   }
 
@@ -269,7 +272,7 @@ class UserApprovalController {
       await UserApprovalService.saveUserPermissionsJson({ user_id, user_ecno, login_id, hierarchy, screens });
 
       await invalidateCache(req.redisClient, "ua:permissions");
-      if (user_ecno) await invalidateCache(req.redisClient, `ua:user_screens:${user_ecno}`);
+      if (user_ecno) await invalidateCache(req.redisClient, `ua:user_screens:${user_ecno}`, `hier:${user_ecno}`);
       await invalidateCache(req.redisClient, `ua:user_perms:${user_id ?? login_id}`);
 
       if (req.io) {
@@ -330,7 +333,7 @@ class UserApprovalController {
       }
 
       await invalidateCache(req.redisClient, "ua:permissions");
-      if (user_ecno) await invalidateCache(req.redisClient, `ua:user_screens:${user_ecno}`);
+      if (user_ecno) await invalidateCache(req.redisClient, `ua:user_screens:${user_ecno}`, `hier:${user_ecno}`);
       await invalidateCache(req.redisClient, `ua:user_perms:${userId}`);
 
       if (req.io) {
@@ -364,7 +367,7 @@ class UserApprovalController {
 
       await invalidateCache(req.redisClient, "ua:permissions");
       await invalidateCache(req.redisClient, `ua:user_perms:${userId}`);
-      if (ecno) await invalidateCache(req.redisClient, `ua:user_screens:${ecno}`);
+      if (ecno) await invalidateCache(req.redisClient, `ua:user_screens:${ecno}`, `hier:${ecno}`);
 
       if (req.io) {
         // Push to the revoked user immediately — their sidebar re-fetches and goes empty in real time.

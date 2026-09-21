@@ -19,23 +19,25 @@ import signUpRouter from "./src/Login/Routes/SignUpRoutes.js";
 import BudgetRouter from "./src/Budget/Routes/BudgetRoutes.js";
 import basicAuth from "./src/AuthMiddleware/BasicAuth.js";
 import verifyJWT from "./src/AuthMiddleware/JwtAuth.js";
+import { getHierarchyJson, orgRoomsForHierarchy } from "./src/Middleware/hierarchyScope.js";
 import UserApprovalrouter from "./src/UserApproval/routes/UserApproval.routes.js";
 import Kycrouter from "./src/Kyc/routes/Kyc.routes.js";
+import ServiceAgreementRouter from "./src/ServiceAgreement/routes/ServiceAgreement.routes.js";
+import { startServiceAgreementScheduledJobs } from "./src/ServiceAgreement/jobs/AgreementPoJob.js";
+import ServicePoRouter from "./src/ServicePo/routes/ServicePo.routes.js";
+import LoanVoucherRouter from "./src/LoanVoucher/routes/LoanVoucher.routes.js";
+import ServiceGrnRouter from "./src/ServiceGrn/routes/ServiceGrn.routes.js";
+import PublicKycRouter from "./src/Kyc/routes/PublicKyc.routes.js";
 import imageRouter from "./src/Utils/ImagesUpload/imageRoute.js";
 import WorkFlowApprovalrouter from "./src/WorkFlowApproval/routes/WorkFlowApproval.routes.js";
 import PRrouter from "./src/PR/routes/PR.routes.js";
 import POrouter from "./src/PO/routes/PO.routes.js";
-import ServicePOrouter from "./src/ServicePO/routes/ServicePO.routes.js";
-import ServiceAgreementRouter from "./src/ServiceAgreement/routes/ServiceAgreement.routes.js";
-import { startServiceAgreementScheduledJobs } from "./src/ServiceAgreement/jobs/RecurringPrJob.js";
-import ServiceBillRequestRouter from "./src/ServiceBillRequest/routes/ServiceBillRequest.routes.js";
-import ServiceVendorEntryRouter from "./src/ServiceVendorEntry/routes/ServiceVendorEntry.routes.js";
-import ServiceVendorKycRouter from "./src/ServiceVendorKyc/routes/ServiceVendorKyc.routes.js";
 import PRTrackingRouter from "./src/PRTracking/routes/PRTracking.routes.js";
 import StorePOrouter from "./src/StorePO/routes/StorePO.routes.js";
 import PurchaseTeamRouter from "./src/PurchaseTeam/routes/PurchaseTeam.routes.js";
 import NonStaffUserRouter from "./src/NonStaffUser/routes/NonStaffUser.routes.js";
 import TermsConditionsRouter from "./src/TermsConditions/routes/TermsConditions.routes.js";
+import ProductStockLevelRouter from "./src/ProductStockLevel/routes/ProductStockLevel.routes.js";
 import GRNRouter from "./src/GRN/routes/GRN.routes.js";
 import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
@@ -133,13 +135,46 @@ io.use((socket, next) => {
     }
 });
 
+// scopeKey is "{com_sno|x}:{div_sno|x}:{brn_sno|x}" (see PR.repository.js's
+// buildScopeKey) — validates it against a resolved hierarchy using the same
+// wildcard rule as the SQL @HierarchyJson filters (a hierarchy row with
+// div_sno/brn_sno = NULL grants everything under it).
+function hierarchyAllowsScopeKey(hierarchy, scopeKey) {
+    if (!scopeKey || typeof scopeKey !== "string") return false;
+    const [comStr, divStr, brnStr] = scopeKey.split(":");
+    const com = comStr === "x" ? null : Number(comStr);
+    const div = divStr === "x" ? null : Number(divStr);
+    const brn = brnStr === "x" ? null : Number(brnStr);
+    if (com == null) return false;
+    return (hierarchy ?? []).some(
+        (h) => h.com_sno === com && (h.div_sno == null || h.div_sno === div) && (h.brn_sno == null || h.brn_sno === brn)
+    );
+}
+
 io.on("connection", (socket) => {
     const user = Array.isArray(socket.user) ? socket.user[0] : socket.user;
     const ecno = user?.ecno;
     if (ecno) socket.join(`user:${ecno}`);
-       // PR dept-scope rooms: pr:scope:{com_sno}:{div_sno}:{brn_sno}
-    socket.on("join-pr-scope", (scopeKey) => {
-        if (scopeKey && typeof scopeKey === "string") socket.join(`pr:scope:${scopeKey}`);
+
+    // Resolved once per connection and reused for every scoped join below —
+    // an ecno with no assigned hierarchy resolves to [] (sees nothing),
+    // same fail-closed default as the GET-endpoint scoping.
+    let hierarchyReady = getHierarchyJson(ecno).then((hierarchy) => {
+        socket.hierarchy = hierarchy;
+        // Org-scoped rooms for domains converted so far (GRN, Inventory) are
+        // joined automatically alongside their existing flat rooms below —
+        // see join-grn/join-inventory.
+        return hierarchy;
+    });
+
+       // PR dept-scope rooms: pr:scope:{com_sno}:{div_sno}:{brn_sno} — only
+       // joined when the caller's own hierarchy actually covers that scope,
+       // not trusted blindly from the client.
+    socket.on("join-pr-scope", async (scopeKey) => {
+        const hierarchy = socket.hierarchy ?? (await hierarchyReady);
+        if (scopeKey && typeof scopeKey === "string" && hierarchyAllowsScopeKey(hierarchy, scopeKey)) {
+            socket.join(`pr:scope:${scopeKey}`);
+        }
     });
 
     socket.on("leave-pr-scope", (scopeKey) => {
@@ -162,38 +197,6 @@ io.on("connection", (socket) => {
         socket.leave("po:approval");
     });
 
-    socket.on("join-service_po-approval", () => {
-        socket.join("service_po:approval");
-    });
-
-    socket.on("leave-service_po-approval", () => {
-        socket.leave("service_po:approval");
-    });
-
-    socket.on("join-service_agreement-approval", () => {
-        socket.join("service_agreement:approval");
-    });
-
-    socket.on("leave-service_agreement-approval", () => {
-        socket.leave("service_agreement:approval");
-    });
-
-    socket.on("join-service_bill_request-approval", () => {
-        socket.join("service_bill_request:approval");
-    });
-
-    socket.on("leave-service_bill_request-approval", () => {
-        socket.leave("service_bill_request:approval");
-    });
-
-    socket.on("join-service_vendor_kyc-approval", () => {
-        socket.join("service_vendor_kyc:approval");
-    });
-
-    socket.on("leave-service_vendor_kyc-approval", () => {
-        socket.leave("service_vendor_kyc:approval");
-    });
-
     // Purchase Team room: live PR-split updates on the purchase screen sidebar
     socket.on("join-purchase-team", () => {
         socket.join("purchase-team");
@@ -211,14 +214,47 @@ io.on("connection", (socket) => {
         socket.leave("kyc:approval");
     });
 
-    // GRN / Gate Entry room: live updates on the GRN + Gate Entry pages
-    // (grn:created, gate_entry:created, gate_entry:status_updated, grn:draft:*)
-    socket.on("join-grn", () => {
+    socket.on("join-service-agreement-approval", () => {
+        socket.join("service_agreement:approval");
+    });
+
+    socket.on("leave-service-agreement-approval", () => {
+        socket.leave("service_agreement:approval");
+    });
+
+    socket.on("join-service-po-approval", () => {
+        socket.join("service_po:approval");
+    });
+
+    socket.on("leave-service-po-approval", () => {
+        socket.leave("service_po:approval");
+    });
+
+    socket.on("join-loan-voucher-approval", () => {
+        socket.join("loan_voucher:approval");
+    });
+
+    socket.on("leave-loan-voucher-approval", () => {
+        socket.leave("loan_voucher:approval");
+    });
+
+    // GRN / Gate Entry room: live updates on the GRN + Gate Entry pages.
+    // gate_entry:*/grn:draft:* events still go out on the flat "grn:live"
+    // room (unchanged, unscoped) — grn:created is now org-scoped instead
+    // (see grn-service's broadcastGRNCreated/hierarchyScope.js's
+    // orgRoomTargets), so this also joins the caller's own org-scoped rooms
+    // so they keep receiving it.
+    socket.on("join-grn", async () => {
         socket.join("grn:live");
+        const hierarchy = socket.hierarchy ?? (await hierarchyReady);
+        for (const room of orgRoomsForHierarchy("grn", hierarchy)) socket.join(room);
     });
 
     socket.on("leave-grn", () => {
         socket.leave("grn:live");
+        for (const room of [...socket.rooms]) {
+            if (room.startsWith("grn:live:com:")) socket.leave(room);
+        }
     });
 
     // PR Tracking room: one requester's full PR journey (pr:track:updated),
@@ -232,17 +268,6 @@ io.on("connection", (socket) => {
 
     socket.on("leave-pr-track", (pr_no) => {
         if (pr_no && typeof pr_no === "string") socket.leave(`pr:track:${pr_no}`);
-    });
-
-    // Service Entry room: live updates on the Service Entry pages
-    // (service_entry:created, service_entry:approval:updated), bridged from
-    // grn-service via /internal/broadcast (see src/utils/socketBroadcast.js)
-    socket.on("join-service_entry", () => {
-        socket.join("service_entry:live");
-    });
-
-    socket.on("leave-service_entry", () => {
-        socket.leave("service_entry:live");
     });
 
     // Invoice / Payment rooms: live updates on the Invoice and Payment pages,
@@ -263,14 +288,23 @@ io.on("connection", (socket) => {
         socket.leave("payment:live");
     });
 
-    // Inventory room: live stock updates (inventory:updated), including
-    // auto-posted receipts from GRN
-    socket.on("join-inventory", () => {
+    // Inventory room: live stock updates (inventory:updated) and stock
+    // request updates (stockrequest:updated), including auto-posted
+    // receipts from GRN. Both event types are now org-scoped (see
+    // hierarchyScope.js's orgRoomTargets) — falls back to the flat
+    // "inventory:live" room only for the rare item with no org ever
+    // assigned, so this also joins the caller's own org-scoped rooms.
+    socket.on("join-inventory", async () => {
         socket.join("inventory:live");
+        const hierarchy = socket.hierarchy ?? (await hierarchyReady);
+        for (const room of orgRoomsForHierarchy("inventory", hierarchy)) socket.join(room);
     });
 
     socket.on("leave-inventory", () => {
         socket.leave("inventory:live");
+        for (const room of [...socket.rooms]) {
+            if (room.startsWith("inventory:live:com:")) socket.leave(room);
+        }
     });
 
     socket.on("disconnect", () => {});
@@ -397,24 +431,28 @@ app.use("/api/user_approval",      verifyJWT,    UserApprovalrouter);
 app.use("/api/common_basic_details",     commonBasicDetailsRouter);
 app.use("/api/budget",            verifyJWT,      BudgetRouter);
 app.use("/api/kyc",                verifyJWT,    Kycrouter);
+app.use("/api/service_agreement",  verifyJWT,    ServiceAgreementRouter);
+app.use("/api/service_grn",        verifyJWT,    ServiceGrnRouter);
+app.use("/api/service_po",         verifyJWT,    ServicePoRouter);
+app.use("/api/loan_voucher",       verifyJWT,    LoanVoucherRouter);
 app.use("/api/workflow_approval",     verifyJWT,     WorkFlowApprovalrouter);
 app.use("/api/pr",                    verifyJWT,                    PRrouter);
 app.use("/api/po",                    verifyJWT,                    POrouter);
-app.use("/api/service_po",            verifyJWT,             ServicePOrouter);
-app.use("/api/service_agreement",     verifyJWT,      ServiceAgreementRouter);
-app.use("/api/service_bill_request",  verifyJWT,   ServiceBillRequestRouter);
-app.use("/api/service_vendor_entry",  verifyJWT,   ServiceVendorEntryRouter);
-app.use("/api/service_vendor_kyc",    verifyJWT,   ServiceVendorKycRouter);
 app.use("/api/pr_tracking",           verifyJWT,          PRTrackingRouter);
 // app.use("/api/store_po",             apiLimiter, verifyJWT, payloadCrypto, StorePOrouter);
 app.use("/api/purchase_team",       verifyJWT,       PurchaseTeamRouter);
 app.use("/api/terms_conditions",    verifyJWT,       TermsConditionsRouter);
+app.use("/api/product_stock_level", verifyJWT,       ProductStockLevelRouter);
 // Not globally wrapped in verifyJWT — per-route auth inside the router
 // itself (create/list are staff-only; login is public and issues the same
 // session cookie as staff login, so a non-staff user lands on the same
 // Dashboard, not a separate portal), same pattern as grn-service's
 // SupplierRouter.
 app.use("/api/nonstaff",            NonStaffUserRouter);
+// Anonymous self-service supplier KYC intake — the /supplier_kyc frontend
+// route. No staff session exists at submission time, so this can never be
+// wrapped in verifyJWT; see PublicKyc.routes.js for exactly what it exposes.
+app.use("/api/public_kyc",          PublicKycRouter);
 // app.use("/api/grn",                  apiLimiter, verifyJWT, payloadCrypto, GRNRouter);
 // In-app notifications now live in notification-service (see
 // notification-service/src/notifications) — the gateway routes
@@ -464,8 +502,5 @@ server.listen(PORT, () => {
     console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || "development"}]`);
     console.log(`API Docs → http://localhost:${PORT}/api-docs`);
     console.log(` Health  → http://localhost:${PORT}/health`);
-
-    // Recurring PR generation + Service Agreement expiry (spec §5/§3.2) —
-    // see src/ServiceAgreement/jobs/RecurringPrJob.js
     startServiceAgreementScheduledJobs();
 });

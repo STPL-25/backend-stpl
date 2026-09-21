@@ -1,4 +1,5 @@
 import PRService from "../services/PR.service.js";
+import PurchaseTeamService from "../../PurchaseTeam/services/PurchaseTeam.service.js";
 import { ftpUploader } from "../../Utils/ImagesUpload/ImgUpload.js";
 import { invalidateCacheByPattern } from "../../Middleware/redisCache.js";
 
@@ -17,18 +18,25 @@ class PRController {
       if (typeof req.body.basicInfo === "string") {
         const basicInfo = JSON.parse(req.body.basicInfo);
         const items = JSON.parse(req.body.items || "[]");
-        // Upload each item's file to FTP and replace with URL
+        // Upload each item's file to FTP and replace with URL. Vendor-driven
+        // requisitions instead carry one "attachment" file for the whole
+        // requisition (see usp_InsertVendorDrivenPurchaseRequest).
         if (req.files && req.files.length > 0) {
           for (const file of req.files) {
-            const match = file.fieldname.match(/^item_attachment_(\d+)$/);
-            if (match) {
-              const idx = parseInt(match[1], 10);
+            const itemMatch = file.fieldname.match(/^item_attachment_(\d+)$/);
+            if (itemMatch) {
+              const idx = parseInt(itemMatch[1], 10);
               if (items[idx]) {
                 items[idx].item_attachment = await ftpUploader.uploadFileIfExists(
                   file,
                   "NON_TRADE_DATAS/PR_ITEMS"
                 );
               }
+            } else if (file.fieldname === "attachment") {
+              basicInfo.attachment = await ftpUploader.uploadFileIfExists(
+                file,
+                "NON_TRADE_DATAS/PR_ITEMS"
+              );
             }
           }
         }
@@ -38,7 +46,23 @@ class PRController {
         payload = req.body;
       }
 
-      const data = await PRService.createPrRecords(payload);
+      const isVendorDriven = payload?.basicInfo?.request_mode === "VENDOR_DRIVEN";
+      if (isVendorDriven) {
+        const ecno = req.user_ecno;
+        if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+        payload.basicInfo.created_by = ecno;
+        if (!payload.basicInfo.vendor_sno || !Array.isArray(payload.items) || payload.items.length === 0 || !payload.basicInfo.attachment) {
+          return res.status(400).json({
+            success: false,
+            error: "Vendor-driven requisitions require a supplier, at least one item, and a verification document.",
+          });
+        }
+      }
+
+      const data = isVendorDriven
+        ? await PRService.createVendorDrivenPrRecords(payload)
+        : await PRService.createPrRecords(payload);
       await invalidateCacheByPattern(req.redisClient, "pr:list:*");
       res.json({ success: true, data });
     } catch (error) {
@@ -50,10 +74,9 @@ class PRController {
 
   static async getPrRecords(req, res) {
     try {
-      console.log("1111111111111111111111111111111111111",req.user_ecno)
-      // const ecno = req.query.ecno;
       const ecno = req.user_ecno; // Use the authenticated user's ecno from JWT payload
-      const data = await PRService.getPrRecords(ecno);
+      console.log("Authenticated user ecno:", ecno);
+      const data = await PRService.getPrRecords(ecno, req.hierarchyJson);
       res.json({ success: true, data });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -81,6 +104,36 @@ class PRController {
       const data = await PRService.approvePr({ pr_no,approved_by: ecno, comments: comments || "",approval_stages,action  });
       await invalidateCacheByPattern(req.redisClient, "pr:list:*");
 
+      // Vendor-driven PRs auto-raise their child PO the instant final
+      // approval is reached — the dedicated VendorDrivenPurchaseRequisition
+      // workflow already gated the PR itself, so the PO issues directly
+      // (sp_nt_CreateVendorDrivenPOFromPR), no separate PO-level approval.
+      // A PO-issuance failure must not fail this response — the PR approval
+      // already committed — so it's caught and surfaced as auto_po.result
+      // ==='ERROR' instead, same tolerance sp_approve_service_agreement
+      // uses for its own auto-issue step.
+      const approvalRow = data?.[0];
+      let auto_po;
+      if (
+        action === "approve" &&
+        approvalRow?.result === "SUCCESS" &&
+        approvalRow?.next_approver === "FINAL_STAGE" &&
+        approvalRow?.request_mode === "VENDOR_DRIVEN"
+      ) {
+        try {
+          const poResult = await PurchaseTeamService.createVendorDrivenPO({
+            pr_basic_sno: approvalRow.pr_basic_sno,
+            created_by: ecno,
+          });
+          auto_po = poResult?.[0];
+          await invalidateCacheByPattern(req.redisClient, "pt:approved_prs*");
+          await invalidateCacheByPattern(req.redisClient, "grn:pending_pos*");
+        } catch (poError) {
+          console.log("Auto child-PO creation failed after vendor-driven PR approval:", poError.message);
+          auto_po = { result: "ERROR", error: poError.message };
+        }
+      }
+
       // req.io.emit("pr:approval:updated", { pr_no, action, approved_by: ecno });
 
       // Additive PR-tracking push for the requester's tracking page.
@@ -93,7 +146,7 @@ class PRController {
         });
       }
 
-      res.json({ success: true, data, message:  `successfully`});
+      res.json({ success: true, data, auto_po, message:  `successfully`});
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }

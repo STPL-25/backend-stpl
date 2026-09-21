@@ -14,24 +14,26 @@ function generateTempPassword() {
 class NonStaffUserService {
   static repo = new NonStaffUserRepository();
 
-  static async createUser({ login_id, full_name, designation_sno, email, phone, created_by }) {
-    console.log("Creating non-staff user:", { login_id, full_name, designation_sno, email, phone, created_by });
-    if (!login_id || !full_name || !designation_sno || !email) {
-      throw new Error("login_id, full_name, designation_sno and email are required.");
+  // login_id is not accepted here — the stored procedure generates it (NSU#####) so it can
+  // never be typed to collide with a real staff ecno. See sql/68_nonstaff_login_id_autogen.sql.
+  static async createUser({ full_name, designation_sno, email, phone, created_by }) {
+    console.log("Creating non-staff user:", { full_name, designation_sno, email, phone, created_by });
+    if (!full_name || !designation_sno || !email) {
+      throw new Error("full_name, designation_sno and email are required.");
     }
 
     const tempPassword = generateTempPassword();
     const password_hash = await bcrypt.hash(tempPassword, SALT_ROUNDS);
 
     const [login] = await this.repo.createLogin({
-      login_id, full_name, designation_sno, email, phone, password_hash, created_by,
+      full_name, designation_sno, email, phone, password_hash, created_by,
     });
 
     const mailResult = await sendNonStaffInviteEmail({
       to: email,
       fullName: full_name,
       designationName: login?.designation_name,
-      loginId: login_id,
+      loginId: login?.login_id,
       tempPassword,
       portalUrl: PORTAL_URL,
     });

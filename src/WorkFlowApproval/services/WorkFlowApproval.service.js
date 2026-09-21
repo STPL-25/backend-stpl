@@ -6,6 +6,7 @@ class WorkFlowApprovalService {
   // approval_workflow_master
   static saveFullWorkflow(data)          { return this.repo.saveFullWorkflow(data); }
   static getWorkflows()                  { return this.repo.getWorkflows(); }
+  static getEntityTypes()                { return this.repo.getEntityTypes(); }
   static getWorkflowByEntity(entityType) { return this.repo.getWorkflowByEntity(entityType); }
   static updateWorkflow(data)            { return this.repo.updateWorkflow(data); }
 

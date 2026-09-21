@@ -12,7 +12,16 @@ class PurchaseTeamController {
   // ── GET APPROVED PRs ────────────────────────────────────────────────────
   static async getApprovedPRs(req, res) {
     try {
-      const data = await PurchaseTeamService.getApprovedPRs(req.query);
+      const data = await PurchaseTeamService.getApprovedPRs(req.hierarchyJson);
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async getVendorDrivenApprovedPRs(req, res) {
+    try {
+      const data = await PurchaseTeamService.getVendorDrivenApprovedPRs(req.query);
       res.json({ success: true, data });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -129,6 +138,27 @@ class PurchaseTeamController {
       });
       await invalidateCache(req.redisClient, "pt:approved_prs", "grn:pending_pos", "storepo:list");
       res.json({ success: true, data, message: "Purchase Order created" });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async createVendorDrivenPO(req, res) {
+    try {
+      const user = getAuthUser(req);
+      const ecno = user?.ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      if (!req.body?.pr_basic_sno) {
+        return res.status(400).json({ success: false, error: "pr_basic_sno is required" });
+      }
+
+      const data = await PurchaseTeamService.createVendorDrivenPO({
+        ...req.body,
+        created_by: ecno,
+      });
+      await invalidateCache(req.redisClient, "pt:approved_prs", "grn:pending_pos", "storepo:list");
+      res.json({ success: true, data, message: "Vendor-driven purchase order created" });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }

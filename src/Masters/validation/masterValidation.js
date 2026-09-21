@@ -56,10 +56,12 @@ const REQUIRED_FIELDS = {
   TransportMaster: ["transport_name"],
   BankAccountTypeMaster: ["account_type_code", "account_type_name"],
   WarehouseLocationMaster: ["location_code", "location_name", "com_snos"],
-  RecurrenceCadenceMaster: ["cadence_code", "cadence_name", "interval_unit", "interval_value"],
   DesignationMaster: ["designation_code", "designation_name"],
   SupplierCatagoryMaster: ["supp_cat_name"],
   PaymentModeMaster: ["payment_mode_code", "payment_mode_name"],
+  ServiceTypeMaster: ["service_type_code", "service_type_name"],
+  ServiceMaster: ["service_name", "service_code", "service_type_sno"],
+  RecurrenceCadenceMaster: ["cadence_code", "cadence_name", "interval_unit", "interval_value"],
 };
 
 // Fields that are only mandatory conditionally on another field's value.
@@ -70,6 +72,13 @@ const CONDITIONAL_RULES = {
   CompanyMaster: (data) => {
     if (data?.is_gst_applicable === "N") return [];
     return ["add_gst", "add_tan", "add_cin"].filter((field) => isBlank(data?.[field]));
+  },
+  // perishable_days (shelf life) only means something for a Perishable
+  // subcategory — see backend-stpl/sql/77_subcategory_perishable_type.sql,
+  // which enforces the same rule authoritatively in sp_nt_CreateSubCategoryRecords.
+  ProductSubCategoryMaster: (data) => {
+    if (data?.subcat_stock_type !== "Perishable") return [];
+    return isBlank(data?.perishable_days) ? ["perishable_days"] : [];
   },
 };
 

@@ -2,12 +2,14 @@ import express from "express";
 import PurchaseTeamController from "../controllers/PurchaseTeam.controller.js";
 import { cacheMiddleware } from "../../Middleware/redisCache.js";
 import { upload } from "../../Utils/ImagesUpload/ImgUpload.js";
+import { attachHierarchyScope } from "../../Middleware/hierarchyScope.js";
 
 const PurchaseTeamRouter = express.Router();
 
 // Approved PRs for purchase team
 // PurchaseTeamRouter.get("/getApprovedPRs", cacheMiddleware("pt:approved_prs", 120), PurchaseTeamController.getApprovedPRs);
-PurchaseTeamRouter.get("/getApprovedPRs",  PurchaseTeamController.getApprovedPRs);
+PurchaseTeamRouter.get("/getApprovedPRs", attachHierarchyScope, PurchaseTeamController.getApprovedPRs);
+PurchaseTeamRouter.get("/getVendorDrivenApprovedPRs", PurchaseTeamController.getVendorDrivenApprovedPRs);
 
 
 // Approved vendors
@@ -20,6 +22,7 @@ PurchaseTeamRouter.post("/selectQuotation", PurchaseTeamController.selectQuotati
 
 // Create PO from selected quotation
 PurchaseTeamRouter.post("/createPOFromQuotation", PurchaseTeamController.createPOFromQuotation);
+PurchaseTeamRouter.post("/createVendorDrivenPO", PurchaseTeamController.createVendorDrivenPO);
 
 // Email the frontend-generated PO PDF to the supplier
 PurchaseTeamRouter.post("/sendPOEmail", upload.any(), PurchaseTeamController.sendPOEmail);

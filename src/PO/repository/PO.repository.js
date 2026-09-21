@@ -19,10 +19,11 @@ class PORepository {
   // quotation with header + vendor columns plus JSON columns:
   //   quotation_item_details, stage_order_json, quotation_history,
   //   pr_header, original_pr_item_details
-  async getPoRecords(ecno) {
+  async getPoRecords(ecno, hierarchyJson) {
     try {
       const request = mssqlPool.request();
       request.input("Ecno", mssql.VarChar(50), ecno);
+      request.input("HierarchyJson", mssql.NVarChar(mssql.MAX), JSON.stringify(hierarchyJson ?? []));
       const result = await request.execute(this.storedProcedureMap["getPoRecords"]);
       return result.recordset;
     } catch (error) {

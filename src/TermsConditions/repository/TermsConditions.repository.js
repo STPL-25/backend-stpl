@@ -23,8 +23,18 @@ class TermsConditionsRepository {
     }
   }
 
-  async getAll() {
-    return this.#executeQuery("sp_nt_GetTermsConditionsRecords");
+  // sp_nt_GetTermsConditionsRecords takes @HierarchyJson directly, not the
+  // generic @jsonInput blob #executeQuery binds everywhere else here.
+  async getAll(hierarchyJson) {
+    try {
+      const request = mssqlPool.request();
+      request.input("HierarchyJson", mssql.NVarChar(mssql.MAX), JSON.stringify(hierarchyJson ?? []));
+      const result = await request.execute("sp_nt_GetTermsConditionsRecords");
+      return result.recordset;
+    } catch (error) {
+      console.error("Error executing stored procedure sp_nt_GetTermsConditionsRecords:", error);
+      throw new Error(`Database error [sp_nt_GetTermsConditionsRecords]: ${error?.message ?? "Unknown DB error"}`);
+    }
   }
 
   async create(data) {

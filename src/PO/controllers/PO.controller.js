@@ -7,7 +7,7 @@ class POController {
       // Identity is never taken from the client — a caller could otherwise
       // pass ?ecno=<someone-else> and read that employee's PO records.
       const ecno = req.user_ecno;
-      const data = await POService.getPoRecords(ecno);
+      const data = await POService.getPoRecords(ecno, req.hierarchyJson);
       res.json({ success: true, data });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });

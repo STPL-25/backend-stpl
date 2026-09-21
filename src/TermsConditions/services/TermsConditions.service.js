@@ -3,8 +3,8 @@ import TermsConditionsRepository from "../repository/TermsConditions.repository.
 class TermsConditionsService {
   static repo = new TermsConditionsRepository();
 
-  static async getAll() {
-    return this.repo.getAll();
+  static async getAll(hierarchyJson) {
+    return this.repo.getAll(hierarchyJson);
   }
 
   static async create(data) {
