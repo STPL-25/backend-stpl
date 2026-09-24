@@ -7,9 +7,17 @@
  *   flow as JwtAuth.js.  Token is passed as a query param so it works
  *   with <img src>, <iframe src>, and <a download> tags.
  *
- * - Unlimited concurrency: a fresh FTP connection is created per request
- *   and closed in the finally block.  No pool cap — the FTP server itself
- *   is the only limit.
+ * - Pooled connections: this is the highest-traffic FTP path (every
+ *   thumbnail/attachment link on a page hits it), so requests are served
+ *   from a small fixed-size pool of persistent, already-authenticated FTP
+ *   connections (see FtpConnectionPool) instead of opening a brand-new
+ *   login per request. That pool size is the hard cap on concurrent
+ *   logins to the FTP server — a burst of requests beyond it queues for a
+ *   free connection instead of tripping the server's max-login limit.
+ *   Override with FTP_DOWNLOAD_POOL_SIZE.
+ *
+ * - No directory listing: existence + size come from a single SIZE
+ *   command instead of LIST-ing the whole directory on every request.
  *
  * - Proper Content-Type is detected from the file extension so browsers
  *   can inline-display images and PDFs instead of force-downloading them.
@@ -19,10 +27,10 @@
  */
 
 import express from 'express';
-import ftp    from 'basic-ftp';
 import jwt    from 'jsonwebtoken';
 import crypto from 'crypto';
 import { configDotenv } from 'dotenv';
+import { FtpConnectionPool } from './FtpConnectionPool.js';
 
 configDotenv();
 
@@ -35,6 +43,11 @@ const FTP_CONFIG = {
   password: process.env.FTP_PASS   || '$p@cek7m',
   secure: false,
 };
+
+// Separate from FtpUploader's pool so a burst of image/document loads
+// can't starve form uploads (or vice versa). Downloads dominate traffic,
+// so this pool is larger by default.
+const downloadPool = new FtpConnectionPool(FTP_CONFIG, Number(process.env.FTP_DOWNLOAD_POOL_SIZE) || 6);
 
 // ── MIME type map ─────────────────────────────────────────────────────────────
 const MIME_TYPES = {
@@ -99,42 +112,36 @@ imageRouter.get('/dwl/:imagepath/:subpath/:filename', async (req, res) => {
   // }
 
   const { imagepath, subpath, filename } = req.params;
-
-  // One fresh connection per request — no pool cap
-  const client = new ftp.Client(30_000);
-  client.ftp.verbose = false;
+  const remoteDir = `/${imagepath}/${subpath}`;
 
   try {
-    await client.access(FTP_CONFIG);
-    await client.ensureDir(`/${imagepath}/${subpath}`);
+    await downloadPool.run(async (client) => {
+      await client.cd(remoteDir);
+      // Single SIZE command instead of a full directory LIST — missing
+      // file/dir surfaces as a 550, handled below as 404.
+      const size = await client.size(filename);
 
-    const list = await client.list();
-    const file = list.find((f) => f.name === filename);
+      const ext         = filename.split('.').pop()?.toLowerCase() ?? '';
+      const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
 
-    if (!file) {
+      res.setHeader('Content-Type',        contentType);
+      res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
+      res.setHeader('Content-Length',      size);
+      // Let browser cache private assets for 1 hour to avoid repeat FTP hits
+      res.setHeader('Cache-Control',       'private, max-age=3600');
+
+      await client.downloadTo(res, filename);
+    });
+  } catch (err) {
+    if (err?.code === 550) {
       return res.status(404).json({ success: false, message: 'File not found.' });
     }
-
-    const ext         = filename.split('.').pop()?.toLowerCase() ?? '';
-    const contentType = MIME_TYPES[ext] ?? 'application/octet-stream';
-
-    res.setHeader('Content-Type',        contentType);
-    res.setHeader('Content-Disposition', `inline; filename="${filename}"`);
-    res.setHeader('Content-Length',      file.size);
-    // Let browser cache private assets for 1 hour to avoid repeat FTP hits
-    res.setHeader('Cache-Control',       'private, max-age=3600');
-
-    await client.downloadTo(res, filename);
-  } catch (err) {
     console.log('FTP download error:', err);
     if (!res.headersSent) {
       res.status(500).json({ success: false, error: 'FTP download failed.' });
     } else {
       res.end();
     }
-  } finally {
-    // Always close — even if response was already streamed
-    client.close();
   }
 });
 

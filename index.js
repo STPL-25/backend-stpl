@@ -27,6 +27,7 @@ import { startServiceAgreementScheduledJobs } from "./src/ServiceAgreement/jobs/
 import ServicePoRouter from "./src/ServicePo/routes/ServicePo.routes.js";
 import LoanVoucherRouter from "./src/LoanVoucher/routes/LoanVoucher.routes.js";
 import ServiceGrnRouter from "./src/ServiceGrn/routes/ServiceGrn.routes.js";
+import ServiceVendorKycRouter from "./src/ServiceVendorKyc/routes/ServiceVendorKyc.routes.js";
 import PublicKycRouter from "./src/Kyc/routes/PublicKyc.routes.js";
 import imageRouter from "./src/Utils/ImagesUpload/imageRoute.js";
 import WorkFlowApprovalrouter from "./src/WorkFlowApproval/routes/WorkFlowApproval.routes.js";
@@ -238,6 +239,14 @@ io.on("connection", (socket) => {
         socket.leave("loan_voucher:approval");
     });
 
+    socket.on("join-service-vendor-kyc-approval", () => {
+        socket.join("service_vendor_kyc:approval");
+    });
+
+    socket.on("leave-service-vendor-kyc-approval", () => {
+        socket.leave("service_vendor_kyc:approval");
+    });
+
     // GRN / Gate Entry room: live updates on the GRN + Gate Entry pages.
     // gate_entry:*/grn:draft:* events still go out on the flat "grn:live"
     // room (unchanged, unscoped) — grn:created is now org-scoped instead
@@ -431,6 +440,7 @@ app.use("/api/user_approval",      verifyJWT,    UserApprovalrouter);
 app.use("/api/common_basic_details",     commonBasicDetailsRouter);
 app.use("/api/budget",            verifyJWT,      BudgetRouter);
 app.use("/api/kyc",                verifyJWT,    Kycrouter);
+app.use("/api/service_vendor_kyc", verifyJWT,    ServiceVendorKycRouter);
 app.use("/api/service_agreement",  verifyJWT,    ServiceAgreementRouter);
 app.use("/api/service_grn",        verifyJWT,    ServiceGrnRouter);
 app.use("/api/service_po",         verifyJWT,    ServicePoRouter);

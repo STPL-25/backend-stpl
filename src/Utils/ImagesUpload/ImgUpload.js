@@ -1,10 +1,9 @@
 
-import ftp from "basic-ftp";
 import { Readable } from "stream";
 import multer from "multer";
 import { nanoid } from "nanoid";
 import path from "path";
-import fs from "fs";
+import { FtpConnectionPool } from "./FtpConnectionPool.js";
 const memoryStorage = multer.memoryStorage();
 const upload = multer({ storage: memoryStorage });
 const ftpConfig = {
@@ -24,6 +23,21 @@ class FtpUploader {
       secure: config.secure || false,
     };
     this.basePath = config.basePath || "";
+    // Persistent, reused logins instead of one fresh FTP login per
+    // upload/check — see FtpConnectionPool for why. Size is small since
+    // uploads are comparatively rare (form submits, not page renders);
+    // override with FTP_UPLOAD_POOL_SIZE if needed.
+    this.pool = new FtpConnectionPool(this.ftpConfig, Number(process.env.FTP_UPLOAD_POOL_SIZE) || 3);
+  }
+
+  /**
+   * Absolute remote directory for a subDirectory, combined with basePath.
+   * Always absolute (leading "/") so it's correct regardless of whatever
+   * directory a previous call left a reused pooled connection sitting in.
+   */
+  _remoteDir(subDirectory) {
+    const segments = [this.basePath, subDirectory].filter(Boolean).join("/");
+    return "/" + segments.replace(/^\/+/, "");
   }
 
   /**
@@ -34,44 +48,31 @@ class FtpUploader {
    * @returns {Promise<{success: boolean, url: string, message: string}>}
    */
   async uploadFile(fileBuffer, filename, subDirectory = "") {
-    const client = new ftp.Client();
-    client.ftp.verbose = false;
+    const remoteDir = this._remoteDir(subDirectory);
     try {
-      // Connect to FTP server
-      await client.access(this.ftpConfig);
+      await this.pool.run(async (client) => {
+        // Absolute cd (creating the directory if it doesn't exist yet) —
+        // safe to call every time even on a reused connection.
+        await client.ensureDir(remoteDir);
 
-      // Navigate to the base directory
-      if (this.basePath) {
-        await client.cd(this.basePath);
-      }
+        // Create a readable stream from buffer and upload directly to FTP
+        const fileStream = new Readable();
+        fileStream.push(fileBuffer);
+        fileStream.push(null); // Signals the end of the stream
+        await client.uploadFrom(fileStream, filename);
+      });
 
-      // Navigate to subdirectory if provided
-      if (subDirectory) {
-        try {
-          await client.cd(subDirectory);
-        } catch (err) {
-          await client.send("MKD " + subDirectory);
-          await client.cd(subDirectory);
-        }
-      }
-
-      // Create a readable stream from buffer and upload directly to FTP
-      const fileStream = new Readable();
-      fileStream.push(fileBuffer);
-      fileStream.push(null); // Signals the end of the stream
-      await client.uploadFrom(fileStream, filename);
-
+      console.log(`File uploaded successfully: ${filename} to ${remoteDir}`);
       return {
         success: true,
         message: "File uploaded successfully",
       };
     } catch (err) {
+      console.error("FTP upload error:", err);
       return {
         success: false,
         message: `File upload failed: ${err.message}`,
       };
-    } finally {
-      client.close();
     }
   }
 
@@ -82,19 +83,18 @@ class FtpUploader {
    * @returns {Promise<{success: boolean, results: Array}>}
    */
   async uploadMultipleFiles(files, subDirectory = "") {
-    const results = [];
-
-    for (const file of files) {
-      const result = await this.uploadFile(
-        file.buffer,
-        file.filename,
-        subDirectory
-      );
-      results.push({
-        filename: file.filename,
-        ...result,
-      });
-    }
+    // Connections are pooled now, so these can run concurrently — extra
+    // files beyond the pool size just queue for a free connection instead
+    // of each paying for (and serially waiting on) its own fresh login.
+    const results = await Promise.all(
+      files.map(async (file) => {
+        const result = await this.uploadFile(file.buffer, file.filename, subDirectory);
+        return {
+          filename: file.filename,
+          ...result,
+        };
+      })
+    );
 
     return {
       success: results.every((r) => r.success),
@@ -109,30 +109,17 @@ class FtpUploader {
    * @returns {Promise<boolean>}
    */
   async fileExists(filename, subDirectory = "") {
-    const client = new ftp.Client();
-    client.ftp.verbose = false;
-
+    const remoteDir = this._remoteDir(subDirectory);
     try {
-      await client.access(this.ftpConfig);
-
-      if (this.basePath) {
-        await client.cd(this.basePath);
-      }
-
-      if (subDirectory) {
-        try {
-          await client.cd(subDirectory);
-        } catch (err) {
-          return false; // Directory doesn't exist
-        }
-      }
-
-      const list = await client.list();
-      return list.some((file) => file.name === filename);
+      return await this.pool.run(async (client) => {
+        await client.cd(remoteDir);
+        // A single SIZE command instead of listing the whole directory.
+        // Missing file -> 550, caught below -> false, same as before.
+        await client.size(filename);
+        return true;
+      });
     } catch {
-      return false;
-    } finally {
-      client.close();
+      return false; // Directory or file doesn't exist
     }
   }
   /**
@@ -141,7 +128,7 @@ class FtpUploader {
    * @param {string} filename - Optional custom filename to use
    * @returns {Promise<string>} - URL of the uploaded file or empty string
    */
-  
+
   async uploadFileIfExists(file, subDirectory) {
   if (!file) return "";
 
@@ -160,4 +147,3 @@ class FtpUploader {
 const ftpUploader = new FtpUploader(ftpConfig);
 
 export {ftpUploader,upload}
-

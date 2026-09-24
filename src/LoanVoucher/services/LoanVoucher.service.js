@@ -38,12 +38,13 @@ class LoanVoucherService {
     const rows = await this.repo.getLoanDetail(agreement_sno);
     const row = rows?.[0];
     if (!row) return null;
-    const { rates_json, txns_json, vouchers_json, ...header } = row;
+    const { rates_json, txns_json, vouchers_json, beneficiary_json, ...header } = row;
     return {
       ...header,
       rates: parseJson(rates_json, []),
       txns: parseJson(txns_json, []),
       vouchers: parseJson(vouchers_json, []),
+      beneficiary: parseJson(beneficiary_json),
     };
   }
 

@@ -30,6 +30,11 @@ class CommonMasterRepo {
             "WarehouseLocationMaster": "sp_nt_GetWarehouseLocationRecords",
             "DesignationMaster": "sp_nt_GetDesignationRecords",
             "VendorMaster": "sp_nt_GetApprovedVendorsForServicePicker",
+            // Restricted to vendor_category='SERVICE' — only Service Vendor
+            // KYC-approved vendors, used by Service Agreement's supplier
+            // pickers (VendorMaster stays unrestricted for its other
+            // consumers: Payment, VendorBill, Vendor-Driven PR).
+            "ServiceKycVendorMaster": "sp_nt_GetApprovedServiceKycVendorsForPicker",
             "PaymentModeMaster": "sp_nt_GetPaymentModeRecords",
             "ServiceTypeMaster": "sp_nt_GetServiceTypeRecords",
             "ServiceMaster": "sp_nt_GetServiceRecords",
@@ -114,6 +119,7 @@ class CommonMasterRepo {
         'WarehouseLocationMaster': { label: 'location_name', value: 'location_sno', extra: ['location_code', 'com_snos', 'div_snos', 'brn_snos'] },
         'DesignationMaster': { label: 'designation_name', value: 'designation_sno', extra: ['designation_code'] },
         'VendorMaster': { label: 'company_name', value: 'kyc_basic_info_sno', extra: ['supp_code', 'email', 'mobile_number'] },
+        'ServiceKycVendorMaster': { label: 'company_name', value: 'kyc_basic_info_sno', extra: ['supp_code', 'email', 'mobile_number'] },
         'ServiceTypeMaster': { label: 'service_type_name', value: 'service_type_sno', extra: ['service_type_code'] },
         'ServiceMaster': { label: 'service_name', value: 'service_sno', extra: ['service_type_sno', 'service_type_code', 'default_uom_sno'] },
         'RecurrenceCadenceMaster': { label: 'cadence_name', value: 'recurrence_cadence_sno', extra: ['cadence_code', 'interval_unit', 'interval_value'] },
