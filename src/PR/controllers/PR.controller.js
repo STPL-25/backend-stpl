@@ -46,11 +46,13 @@ class PRController {
         payload = req.body;
       }
 
+      // ecno comes from the session, never the request body.
+      const ecno = req.user_ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+      payload.ecno = ecno;
+
       const isVendorDriven = payload?.basicInfo?.request_mode === "VENDOR_DRIVEN";
       if (isVendorDriven) {
-        const ecno = req.user_ecno;
-        if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
-
         payload.basicInfo.created_by = ecno;
         if (!payload.basicInfo.vendor_sno || !Array.isArray(payload.items) || payload.items.length === 0 || !payload.basicInfo.attachment) {
           return res.status(400).json({

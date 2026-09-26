@@ -71,6 +71,15 @@ class KYCServices {
     return this.kycRepository.getKycApproval(ecno);
   }
 
+  static getSupplierStatusList() {
+    return this.kycRepository.getSupplierStatusList();
+  }
+
+  static async getSupplierStatusTimeline(source, recordId) {
+    const [header, stages, history] = await this.kycRepository.getSupplierStatusTimeline(source, recordId);
+    return { header: header?.[0] ?? null, stages: stages ?? [], history: history ?? [] };
+  }
+
   static getPendingApprovals(ecno) {
     return this.kycRepository.getPendingApprovals(ecno);
   }

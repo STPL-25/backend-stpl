@@ -31,7 +31,9 @@ class PRTrackingRepository {
 
   // Multiple result sets: PR header, quotation, quotation history, PO,
   // PO history, dispatch, dispatch delivery, gate entry, GRN, GRN history,
-  // inventory movements — see sql/29_pr_tracking.sql for the exact order.
+  // inventory movements, PR stage chain, PR approval history, quotation stage
+  // chains, PR core row — see sql/96_pr_tracking_po_approval_and_names.sql for the
+  // exact order (the service destructures by position).
   async getPRTrackingTimeline(pr_no) {
     try {
       const request = mssqlPool.request();

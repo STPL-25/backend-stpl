@@ -10,6 +10,9 @@ Kycrouter.post("/create_kyc_records", upload.any(), KycController.createKYCRecor
 
 Kycrouter.get('/get_all_kycs', cacheMiddleware("kyc:list", 120), KYCControllers.getAllKYCRecords)
 Kycrouter.get('/get_kyc_org_mappings/:kycId', KYCControllers.getKYCOrgMappings)
+// Supplier Status screen — deliberately NOT cached: an approval that just happened must show at once.
+Kycrouter.get('/supplier_status', KYCControllers.getSupplierStatusList)
+Kycrouter.get('/supplier_status/:source/:id', KYCControllers.getSupplierStatusTimeline)
 // Kycrouter.get('/get_kyc_approvals', cacheMiddleware("kyc:list", 120), KYCControllers.getKycApproval)
 
 Kycrouter.get('/get_pending_approvals',  KYCControllers.getPendingApprovals)

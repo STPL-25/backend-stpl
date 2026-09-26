@@ -35,6 +35,30 @@ class KYCRepo {
     }
   }
 
+  // Every supplier with its approval status — sql/97_supplier_status_tracking.sql
+  async getSupplierStatusList() {
+    try {
+      const request = mssqlPool.request();
+      const result = await request.execute("sp_nt_GetSupplierStatusList");
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  // One supplier's approval trail: [header, approval chain, history events]
+  async getSupplierStatusTimeline(source, recordId) {
+    try {
+      const request = mssqlPool.request();
+      request.input("source", mssql.VarChar(12), source);
+      request.input("record_id", mssql.Int, recordId);
+      const result = await request.execute("sp_nt_GetSupplierStatusTimeline");
+      return result.recordsets;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
   async getPendingApprovals(ecno) {
     try {
       console.log("Fetching pending approvals for ECNO:", ecno);

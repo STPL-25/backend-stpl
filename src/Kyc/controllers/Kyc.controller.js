@@ -21,6 +21,34 @@ class KYCControllers {
     }
   }
 
+  static async getSupplierStatusList(req, res) {
+    try {
+      const data = await KYCServices.getSupplierStatusList();
+      res.json({ success: true, data, count: data.length });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async getSupplierStatusTimeline(req, res) {
+    try {
+      const { source } = req.params;
+      const recordId = Number.parseInt(req.params.id, 10);
+      if (!["KYC", "SERVICE_KYC"].includes(source)) {
+        return res.status(400).json({ success: false, error: "source must be KYC or SERVICE_KYC" });
+      }
+      if (!Number.isInteger(recordId)) {
+        return res.status(400).json({ success: false, error: "id must be a number" });
+      }
+
+      const data = await KYCServices.getSupplierStatusTimeline(source, recordId);
+      if (!data.header) return res.status(404).json({ success: false, error: "Supplier not found" });
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   static async getPendingApprovals(req, res) {
     try {
       // req.user_ecno falls back to login_id for non-staff sessions, which have no ecno

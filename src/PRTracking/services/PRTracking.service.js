@@ -37,6 +37,8 @@ class PRTrackingService {
       inventoryMovements,
       approvalStages,
       approvalHistory,
+      quotationStages,
+      prCore,
     ] = await repository.getPRTrackingTimeline(pr_no);
 
     return {
@@ -53,6 +55,10 @@ class PRTrackingService {
       inventoryMovements,
       approvalStages,
       approvalHistory,
+      // sql/96: the approval chain(s) the PR's quotations went through (the "PO approval"),
+      // and the PR row itself (status + who it is with right now).
+      quotationStages,
+      prCore,
     };
   }
 
