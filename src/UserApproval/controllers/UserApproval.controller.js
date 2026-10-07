@@ -11,7 +11,61 @@ class UserApprovalController {
       }
 
       const hierarchy = UserApprovalController.#arrangeHierarchy(data);
-      res.json({ success: true, data: hierarchy });
+      // Opt-in (?scoped=1): other screens share this endpoint and still need the full tree.
+      const scoped = req.query.scoped === "1";
+      res.json({ success: true, data: scoped ? UserApprovalController.#restrictToScope(hierarchy, req.hierarchyJson) : hierarchy });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error?.message ?? "Internal server error" });
+    }
+  }
+
+  // Role Approval screen: an admin only sees the companies/divisions/branches they themselves
+  // have access to. An admin with no scope rows at all (e.g. the super-admin who bootstraps
+  // everyone's scope) is left unrestricted — this endpoint is already gated by the screen
+  // permission, and hiding everything would make it impossible to assign anyone.
+  static #restrictToScope(hierarchy, scope) {
+    if (!Array.isArray(scope) || scope.length === 0) return hierarchy;
+
+    const same = (a, b) => String(a) === String(b);
+    const allowed = (com, div, brn) => scope.some((r) =>
+      (r.com_sno == null || same(r.com_sno, com)) &&
+      (div == null || r.div_sno == null || same(r.div_sno, div)) &&
+      (brn == null || r.brn_sno == null || same(r.brn_sno, brn))
+    );
+
+    const companies = [];
+    for (const c of hierarchy.companies) {
+      if (!allowed(c.com_sno, null, null)) continue;
+      const divisions = [];
+      for (const d of c.divisions) {
+        if (!allowed(c.com_sno, d.div_sno, null)) continue;
+        divisions.push({ ...d, branches: d.branches.filter((b) => allowed(c.com_sno, d.div_sno, b.brn_sno)) });
+      }
+      companies.push({ ...c, divisions });
+    }
+    return { companies };
+  }
+
+  // Which users the Role Approval screen may list: everyone whose scope overlaps the admin's,
+  // plus anyone not yet assigned a scope (otherwise they could never be given one).
+  static async getUserIdentitiesInScope(req, res) {
+    try {
+      const scope = req.hierarchyJson;
+      if (!Array.isArray(scope) || scope.length === 0) {
+        return res.json({ success: true, data: { restricted: false, ecnos: [], login_ids: [], assigned_ecnos: [], assigned_login_ids: [] } });
+      }
+      const { inScope, assigned } = await UserApprovalService.getUserIdentitiesInScope(scope);
+      const pick = (rows, key) => [...new Set(rows.map((r) => r[key]).filter(Boolean))];
+      res.json({
+        success: true,
+        data: {
+          restricted: true,
+          ecnos: pick(inScope, "ecno"),
+          login_ids: pick(inScope, "login_id"),
+          assigned_ecnos: pick(assigned, "ecno"),
+          assigned_login_ids: pick(assigned, "login_id"),
+        },
+      });
     } catch (error) {
       res.status(500).json({ success: false, error: error?.message ?? "Internal server error" });
     }

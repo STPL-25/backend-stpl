@@ -20,6 +20,7 @@ function requireStaffOnly(req, res, next) {
 TermsConditionsRouter.use(requireStaffOnly);
 
 TermsConditionsRouter.get("/getTermsConditions",  attachHierarchyScope, TermsConditionsController.getAll);
+TermsConditionsRouter.get("/getTermsConditionsForScope",   TermsConditionsController.getForScope);
 TermsConditionsRouter.get("/getDefaultTermsConditions",    TermsConditionsController.getDefault);
 TermsConditionsRouter.post("/createTermsConditions",       TermsConditionsController.create);
 TermsConditionsRouter.put("/updateTermsConditions",        TermsConditionsController.update);

@@ -1,3 +1,4 @@
+import VerificationService from "../../KycVerification/KycVerification.service.js";
 import { ftpUploader } from "../../Utils/ImagesUpload/ImgUpload.js";
 import KYCServices from "../services/Kyc.service.js";
 import { invalidateCache } from "../../Middleware/redisCache.js";
@@ -49,6 +50,25 @@ class KYCControllers {
     }
   }
 
+  static async getSupplierFullDetails(req, res) {
+    try {
+      const { source } = req.params;
+      const recordId = Number.parseInt(req.params.id, 10);
+      if (!["KYC", "SERVICE_KYC"].includes(source)) {
+        return res.status(400).json({ success: false, error: "source must be KYC or SERVICE_KYC" });
+      }
+      if (!Number.isInteger(recordId)) {
+        return res.status(400).json({ success: false, error: "id must be a number" });
+      }
+
+      const data = await KYCServices.getSupplierFullDetails(source, recordId);
+      if (!data.basic) return res.status(404).json({ success: false, error: "Supplier not found" });
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   static async getPendingApprovals(req, res) {
     try {
       // req.user_ecno falls back to login_id for non-staff sessions, which have no ecno
@@ -56,6 +76,7 @@ class KYCControllers {
       const data = await KYCServices.getPendingApprovals(req.user_ecno);
       res.json({ success: true, data, count: data.length });
     } catch (error) {
+      console.log(error);
       res.status(500).json({ success: false, error: error.message });
     }
   }
@@ -158,6 +179,12 @@ class KYCControllers {
         });
       }
 
+      // Same rule the form checks up front, enforced again for direct API calls.
+      const dup = await VerificationService.checkDuplicate(kycData);
+      if (dup.exists) {
+        return res.status(409).json({ success: false, error: dup.message, field: dup.field });
+      }
+
       kycData.document = [];
 
       for (const file of req.files) {
@@ -172,6 +199,20 @@ class KYCControllers {
           mimetype: file.mimetype,
           size: file.size,
         });
+      }
+      // No certificate uploaded by hand but the Udyam number was verified through
+      // Cashfree: attach the copy already saved to FTP so it shows in the KYC.
+      if (kycData.msme_no && !kycData.document.some((d) => d.documentType === "msme_file")) {
+        const verifiedCert = await VerificationService.latestCertificateUrl(kycData.msme_no).catch(() => "");
+        if (verifiedCert) {
+          kycData.document.push({
+            documentType: "msme_file",
+            url: verifiedCert,
+            filename: `MSME certificate ${kycData.msme_no}.pdf`,
+            mimetype: "application/pdf",
+            size: 0,
+          });
+        }
       }
       kycData.document = JSON.stringify(kycData.document);
 
@@ -191,6 +232,11 @@ class KYCControllers {
       }
 
       await invalidateCache(req.redisClient, "kyc:list", "kyc:pending");
+
+      // Attach the Cashfree PAN/GST/MSME/bank responses looked up for this KYC.
+      await VerificationService.linkToKyc(data.kyc_basic_info_sno, kycData).catch((e) =>
+        console.error("[kyc-verification] link failed:", e.message)
+      );
 
       req.io.to("kyc:approval").emit("kyc:submitted", {
         company_name: kycData.company_name,
@@ -223,6 +269,31 @@ class KYCControllers {
 
       const data = await CommonMasterServices.getRequiredMasterForOptions(masterFields);
       res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // GST state-code -> state name reference data, so the anonymous form can
+  // resolve a GSTIN's state without the login-protected /api/common_master route.
+  static async getPublicGstStateCodes(req, res) {
+    try {
+      const data = await CommonMasterServices.getAllCommonMasters("GSTStateCodeMaster");
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async getVerificationData(req, res) {
+    try {
+      const kycId = Number(req.params.kycId);
+      if (!kycId) return res.status(400).json({ success: false, error: "kycId is required" });
+      const rows = await VerificationService.getByKyc(kycId);
+      res.json({
+        success: true,
+        data: rows.map(({ response_json, ...r }) => ({ ...r, response: JSON.parse(response_json) })),
+      });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }

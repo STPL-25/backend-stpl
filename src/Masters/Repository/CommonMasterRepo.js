@@ -10,6 +10,7 @@ class CommonMasterRepo {
             'DivisionMaster': 'sp_nt_GetDivisionsRecords', 
             'BranchMaster': 'sp_nt_GetBranchesRecords',
             'UomMaster': 'sp_nt_GetUomRecords',
+            'UomClassMaster': 'sp_nt_GetUomClassRecords',
             'GSTStateCodeMaster': 'sp_nt_GetStateGstRecords',
             'AcYearMaster': 'sp_nt_GetAcYearRecords',
             'PriorityMaster': 'sp_nt_GetPriorityRecords',
@@ -27,6 +28,7 @@ class CommonMasterRepo {
             "BusinessDetailsMatster": "sp_Get_Business_Details",
             "TransportMaster": "sp_nt_GetTransportRecords",
             "BankAccountTypeMaster": "sp_nt_GetBankAccountTypeRecords",
+            "PaymentTermsMaster": "sp_nt_GetPaymentTermsRecords",
             "WarehouseLocationMaster": "sp_nt_GetWarehouseLocationRecords",
             "DesignationMaster": "sp_nt_GetDesignationRecords",
             "VendorMaster": "sp_nt_GetApprovedVendorsForServicePicker",
@@ -46,6 +48,7 @@ class CommonMasterRepo {
             'DivisionMaster': 'sp_nt_CreateDivRecords',
             'BranchMaster': 'sp_nt_CreateBranchRecords',
             'UomMaster': 'sp_nt_CreateUomRecords',
+            'UomClassMaster': 'sp_nt_CreateUomClassRecords',
             'GSTStateCodeMaster': 'sp_nt_CreateGstStateRecords',
             'AcYearMaster': 'sp_nt_CreateAcYearRecords',
             'PriorityMaster': 'sp_nt_CreatePriorityRecords',
@@ -59,6 +62,7 @@ class CommonMasterRepo {
             "WorkflowMaster": "sp_nt_CreateWorkflowMaster",
             "TransportMaster": "sp_nt_CreateTransportRecords",
             "BankAccountTypeMaster": "sp_nt_CreateBankAccountTypeRecords",
+            "PaymentTermsMaster": "sp_nt_CreatePaymentTermsRecords",
             "WarehouseLocationMaster": "sp_nt_CreateWarehouseLocationRecords",
             "DesignationMaster": "sp_nt_CreateDesignationRecords",
             "SupplierCatagoryMaster": "sp_nt_CreateSupplierCategoryRecords",
@@ -68,24 +72,62 @@ class CommonMasterRepo {
             "RecurrenceCadenceMaster": "sp_nt_CreateRecurrenceCadenceRecords"
         };
 
+        // lowercase keys: updateCommonMaster/deleteCommonMaster look up with
+        // masterField.toLowerCase() — see backend-stpl/sql/100_masters_full_crud.sql
+        // for the procedures themselves (one new pair per master; Transport's
+        // pair already existed and is unchanged).
         this.updateProcedureMap = {
-            'CompanyMaster': 'sp_nt_UpdateCompanyRecords',
-            'department': 'sp_nt_UpdateDepartmentRecords',
-            'employee': 'sp_nt_UpdateEmployeeRecords',
-            'role': 'sp_nt_UpdateRoleRecords',
-            'location': 'sp_nt_UpdateLocationRecords',
-            // lowercase key: updateCommonMaster looks up with masterField.toLowerCase()
+            'companymaster': 'sp_nt_UpdateCompanyRecords',
+            'divisionmaster': 'sp_nt_UpdateDivRecords',
+            'branchmaster': 'sp_nt_UpdateBranchRecords',
+            'deptmaster': 'sp_nt_UpdateDeptRecords',
+            'uommaster': 'sp_nt_UpdateUomRecords',
+            'uomclassmaster': 'sp_nt_UpdateUomClassRecords',
+            'gststatecodemaster': 'sp_nt_UpdateGstStateRecords',
+            'prioritymaster': 'sp_nt_UpdatePriorityRecords',
+            'screenmaster': 'sp_nt_UpdateScreenRecords',
+            'screenpermission': 'sp_nt_UpdatePermissionRecords',
+            'workflowmaster': 'sp_nt_UpdateWorkflowMaster',
+            'productcategorymaster': 'sp_nt_UpdateCategoryRecords',
+            'productsubcategorymaster': 'sp_nt_UpdateSubCategoryRecords',
+            'productmaster': 'sp_nt_UpdateProductRecord',
             'transportmaster': 'sp_nt_UpdateTransportRecords',
+            'bankaccounttypemaster': 'sp_nt_UpdateBankAccountTypeRecords',
+            'paymenttermsmaster': 'sp_nt_UpdatePaymentTermsRecords',
+            'warehouselocationmaster': 'sp_nt_UpdateWarehouseLocationRecords',
+            'designationmaster': 'sp_nt_UpdateDesignationRecords',
+            'suppliercatagorymaster': 'sp_nt_UpdateSupplierCategoryRecords',
+            'paymentmodemaster': 'sp_nt_UpdatePaymentModeRecords',
+            'servicetypemaster': 'sp_nt_UpdateServiceTypeRecords',
+            'servicemaster': 'sp_nt_UpdateServiceRecords',
+            'recurrencecadencemaster': 'sp_nt_UpdateRecurrenceCadenceRecords',
         };
 
         this.deleteProcedureMap = {
-            'CompanyMaster': 'sp_nt_DeleteCompanyRecords',
-            'department': 'sp_nt_DeleteDepartmentRecords',
-            'employee': 'sp_nt_DeleteEmployeeRecords',
-            'role': 'sp_nt_DeleteRoleRecords',
-            'location': 'sp_nt_DeleteLocationRecords',
-            // lowercase key: deleteCommonMaster looks up with masterField.toLowerCase()
+            'companymaster': 'sp_nt_DeleteCompanyRecords',
+            'divisionmaster': 'sp_nt_DeleteDivRecords',
+            'branchmaster': 'sp_nt_DeleteBranchRecords',
+            'deptmaster': 'sp_nt_DeleteDeptRecords',
+            'uommaster': 'sp_nt_DeleteUomRecords',
+            'uomclassmaster': 'sp_nt_DeleteUomClassRecords',
+            'gststatecodemaster': 'sp_nt_DeleteGstStateRecords',
+            'prioritymaster': 'sp_nt_DeletePriorityRecords',
+            'screenmaster': 'sp_nt_DeleteScreenRecords',
+            'screenpermission': 'sp_nt_DeletePermissionRecords',
+            'workflowmaster': 'sp_nt_DeleteWorkflowMaster',
+            'productcategorymaster': 'sp_nt_DeleteCategoryRecords',
+            'productsubcategorymaster': 'sp_nt_DeleteSubCategoryRecords',
+            'productmaster': 'sp_nt_DeleteProductRecord',
             'transportmaster': 'sp_nt_DeleteTransportRecords',
+            'bankaccounttypemaster': 'sp_nt_DeleteBankAccountTypeRecords',
+            'paymenttermsmaster': 'sp_nt_DeletePaymentTermsRecords',
+            'warehouselocationmaster': 'sp_nt_DeleteWarehouseLocationRecords',
+            'designationmaster': 'sp_nt_DeleteDesignationRecords',
+            'suppliercatagorymaster': 'sp_nt_DeleteSupplierCategoryRecords',
+            'paymentmodemaster': 'sp_nt_DeletePaymentModeRecords',
+            'servicetypemaster': 'sp_nt_DeleteServiceTypeRecords',
+            'servicemaster': 'sp_nt_DeleteServiceRecords',
+            'recurrencecadencemaster': 'sp_nt_DeleteRecurrenceCadenceRecords',
         };
         this.fieldMappings = {
         'CompanyMaster': { label: 'com_name', value: 'com_sno' },
@@ -97,12 +139,14 @@ class CommonMasterRepo {
         // uom_class (MASS/VOLUME/LENGTH/AREA/QUANTITY) lets it further offer only
         // same-class units when picking what that factor is denominated in.
         'UomMaster': { label: 'uom_name', value: 'uom_sno', extra: ['uom_base_uom_flag', 'uom_con_factor', 'uom_class'] },
+        // value = uom_class_code (not the sno) — uom_master.uom_class stores the code string.
+        'UomClassMaster': { label: 'uom_class_name', value: 'uom_class_code', extra: ['uom_class_sno'] },
         'GSTStateCodeMaster': { label: 'gst_code', value: 'gst_sno' },
         'AcYearMaster': { label: 'ac_year', value: 'ac_sno' },
         'PriorityMaster': { label: 'priority_name', value: 'priority_sno' },
         'DeptMaster': { label: 'dept_name', value: 'dept_sno', extra: ['brn_sno', 'div_sno', 'com_sno'] },
         'ScreenMaster': { label: 'screen_name', value: 'screen_id' },
-        'ProductMaster': { label: 'prod_name', value: 'prod_sno', extra: ['prod_code'] },
+        'ProductMaster': { label: 'prod_name', value: 'prod_sno', extra: ['prod_code', 'uom_sno', 'uom_name', 'prod_uom_con_uom_sno'] },
         'CategoryMaster': { label: 'cat_name', value: 'cat_sno' },
         'SubCategoryMaster': { label: 'subcat_name', value: 'subcat_sno' },
         // Lets the Product form (and anywhere else ProductSubCategoryMaster
@@ -116,6 +160,8 @@ class CommonMasterRepo {
         // value = account_type_name (not the sno) — KYC's ac_type column stores free text,
         // no ac_type_sno FK exists, so the option value must be the text itself.
         'BankAccountTypeMaster': { label: 'account_type_name', value: 'bank_account_type_sno', extra: ['bank_account_type_sno', 'account_type_code'] },
+        // value = payment_terms_name (not the sno) — supplier_quotation_info.payment_terms stores the text.
+        'PaymentTermsMaster': { label: 'payment_terms_name', value: 'payment_terms_name', extra: ['payment_terms_sno', 'payment_terms_code'] },
         'WarehouseLocationMaster': { label: 'location_name', value: 'location_sno', extra: ['location_code', 'com_snos', 'div_snos', 'brn_snos'] },
         'DesignationMaster': { label: 'designation_name', value: 'designation_sno', extra: ['designation_code'] },
         'VendorMaster': { label: 'company_name', value: 'kyc_basic_info_sno', extra: ['supp_code', 'email', 'mobile_number'] },
@@ -325,7 +371,10 @@ async getRequiredMasterForOptions(masterFields, hierarchyJson) {
         };
         if (mapping.extra) {
             mapping.extra.forEach(field => {
-                option[field] = item[field] ?? null;
+                // node-mssql merges same-named columns from joined tables
+                // (e.g. product_master.uom_sno + uom_master.uom_sno) into an array.
+                const v = Array.isArray(item[field]) ? item[field][0] : item[field];
+                option[field] = v ?? null;
             });
         }
         return option;

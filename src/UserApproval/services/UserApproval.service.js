@@ -3,6 +3,10 @@ import UserApprovalRepository from "../repository/UserApproval.repository.js";
 class UserApprovalService {
   static userMasterRepo = new UserApprovalRepository();
 
+  static async getUserIdentitiesInScope(hierarchy) {
+    return this.userMasterRepo.getUserIdentitiesInScope(hierarchy);
+  }
+
   static async getAllCompanyByHierarchy() {
     return this.userMasterRepo.getAllCompanyByHierarchy();
   }

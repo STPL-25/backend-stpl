@@ -8,6 +8,7 @@ const WorkFlowApprovalrouter = express.Router();
 WorkFlowApprovalrouter.post("/saveFullWorkflow",               WorkFlowApprovalController.saveFullWorkflow);
 WorkFlowApprovalrouter.get("/getWorkflows",                     WorkFlowApprovalController.getWorkflows);//cacheMiddleware("wf:workflows", 600),
 WorkFlowApprovalrouter.get("/getEntityTypes",                   WorkFlowApprovalController.getEntityTypes);
+WorkFlowApprovalrouter.get("/getConditionFields",               WorkFlowApprovalController.getConditionFields);
 WorkFlowApprovalrouter.get("/getWorkflowByEntity/:entityType",  WorkFlowApprovalController.getWorkflowByEntity);
 WorkFlowApprovalrouter.put("/updateWorkflow",                  WorkFlowApprovalController.updateWorkflow);
 WorkFlowApprovalrouter.delete("/deleteWorkflow",               WorkFlowApprovalController.deleteWorkflow);

@@ -10,6 +10,7 @@ const PRrouter = express.Router();
 PRrouter.post("/createPrRecords", upload.any(), PRController.createPrRecords);
 PRrouter.get("/getPrRecords", attachHierarchyScope, PRController.getPrRecords);
 PRrouter.post("/approvePr", PRController.approvePr);
+PRrouter.get("/getApprovalContext", PRController.getApprovalContext);
 
 // Draft routes (Redis-backed, per-user)
 PRrouter.post("/saveDraft", PRController.saveDraft);

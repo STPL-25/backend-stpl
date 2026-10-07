@@ -67,6 +67,14 @@ class WorkFlowApprovalRepository {
     }
   }
 
+  // The condition fields a workflow type offers (approval_condition_field, sql/99): key, label,
+  // number|list, option source, unit. Errors are deliberately NOT swallowed like the list getters
+  // above: an empty list means "this entity has no conditions", and the Approval Workflows screen
+  // must be able to tell that apart from "could not load" (and so never drop saved conditions).
+  async getConditionFields(entityType) {
+    return this.#executeQuery("sp_nt_GetApprovalConditionFields", { entity_type: entityType });
+  }
+
   async getWorkflowByEntity(entityType) {
     try {
       return await this.#executeQuery("sp_nt_GetWorkflowByEntity", { entity_type: entityType });

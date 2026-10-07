@@ -50,13 +50,25 @@ export function validateKycCreate(data, files = []) {
     });
   }
 
-  const primaryBank = pickPrimary(data?.bankDetails);
-  if (!primaryBank) {
-    errors.push("bank account");
-  } else {
-    BANK_REQUIRED.forEach((field) => {
-      if (isBlank(primaryBank[field])) errors.push(`bank.${field}`);
+  // A supplier that is paid through its own website has no bank account: the
+  // portal name + URL stand in for the bank section (sql/109).
+  const payViaPortal = data?.pay_via_portal === true || data?.pay_via_portal === "true";
+  if (payViaPortal) {
+    ["payment_portal_name", "payment_portal_url"].forEach((field) => {
+      if (isBlank(data?.[field])) errors.push(field);
     });
+    if (!isBlank(data?.payment_portal_url) && !/^https?:\/\/\S+\.\S+/i.test(String(data.payment_portal_url).trim())) {
+      errors.push("payment_portal_url (must start with http:// or https://)");
+    }
+  } else {
+    const primaryBank = pickPrimary(data?.bankDetails);
+    if (!primaryBank) {
+      errors.push("bank account");
+    } else {
+      BANK_REQUIRED.forEach((field) => {
+        if (isBlank(primaryBank[field])) errors.push(`bank.${field}`);
+      });
+    }
   }
 
   const primaryContact = pickPrimary(data?.contacts);

@@ -1,6 +1,23 @@
 import CommonMasterServices from "../Services/CommonMasterServices.js";
 import { validateMasterCreate } from "../validation/masterValidation.js";
 
+// Some stored procedures (e.g. sp_nt_CreateProductRecord) report a rejected
+// save as a normal recordset — rows with Status/Stat = 'Failed' plus an
+// ErrorMessage — instead of raising an error. Without this check the
+// controller sees a non-empty recordset and answers 201 "created successfully".
+const extractSpFailure = (data) => {
+  if (!Array.isArray(data)) return null;
+  const failed = data.filter((row) => {
+    const flag = row?.Status ?? row?.status ?? row?.Stat;
+    return typeof flag === "string" && flag.toLowerCase() === "failed";
+  });
+  if (failed.length === 0) return null;
+  const messages = failed
+    .map((row) => row.ErrorMessage ?? row.errorMessage ?? row.Message ?? row.message)
+    .filter(Boolean);
+  return [...new Set(messages)].join("; ") || "The save was rejected by the database.";
+};
+
 class CommonMasterControllers {
   static async getAllMasterData(req, res) {
     try {
@@ -71,6 +88,11 @@ class CommonMasterControllers {
       // returned no recordset (e.g. it no-opped on a payload it didn't like
       // instead of raising an error), that is a failure, not a success —
       // telling the user "created successfully" here would be a lie.
+      const spFailure = extractSpFailure(data);
+      if (spFailure) {
+        return res.status(422).json({ success: false, error: spFailure });
+      }
+
       const created = Array.isArray(data) ? data.length > 0 : Boolean(data);
       if (!created) {
         return res.status(500).json({
@@ -106,6 +128,11 @@ class CommonMasterControllers {
           success: false,
           error: "Master data not found",
         });
+      }
+
+      const spFailure = extractSpFailure(data);
+      if (spFailure) {
+        return res.status(422).json({ success: false, error: spFailure });
       }
 
       req.io?.emit("master:updated", { masterField, action: "updated" });

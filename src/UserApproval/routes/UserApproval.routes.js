@@ -1,10 +1,12 @@
 import express from "express";
 import UserApprovalController from "../controllers/UserApproval.controller.js";
 import { cacheMiddleware } from "../../Middleware/redisCache.js";
+import { attachHierarchyScope } from "../../Middleware/hierarchyScope.js";
 
 const UserApprovalrouter = express.Router();
 
-UserApprovalrouter.get("/get_hierachy_com_details",  UserApprovalController.getAllCompanyByHierarchy);
+UserApprovalrouter.get("/get_hierachy_com_details",  attachHierarchyScope, UserApprovalController.getAllCompanyByHierarchy);
+UserApprovalrouter.get("/get_users_in_scope",  attachHierarchyScope, UserApprovalController.getUserIdentitiesInScope);
 UserApprovalrouter.get("/get_screens_with_groups",  UserApprovalController.getAllScreensWithGroups);
 UserApprovalrouter.get("/get_permission_details",  UserApprovalController.getPermissionDetails);
 // DEPRECATED — replaced by the nt_user_permissions_json JSON-column API below.

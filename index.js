@@ -42,6 +42,7 @@ import ProductStockLevelRouter from "./src/ProductStockLevel/routes/ProductStock
 import GRNRouter from "./src/GRN/routes/GRN.routes.js";
 import { authLimiter, apiLimiter } from "./src/Middleware/rateLimiter.js";
 import { payloadCrypto } from "./src/Middleware/payloadCrypto.js";
+import { normalizeTextCase } from "./src/Middleware/normalizeTextCase.js";
 import cryptoDebugRouter from "./src/Utils/CryptoDebug/cryptoDebugRoutes.js";
 import jwt from "jsonwebtoken";
 configDotenv({ path: `.env.${process.env.NODE_ENV || "development"}` });
@@ -155,7 +156,11 @@ function hierarchyAllowsScopeKey(hierarchy, scopeKey) {
 io.on("connection", (socket) => {
     const user = Array.isArray(socket.user) ? socket.user[0] : socket.user;
     const ecno = user?.ecno;
-    if (ecno) socket.join(`user:${ecno}`);
+    // Non-staff sessions (e.g. ED001) have no ecno — notification-service addresses them by
+    // login_id, so without this they never joined their room and only saw new notifications
+    // after a manual refresh / re-opening the bell.
+    const notifyKey = ecno ?? user?.login_id;
+    if (notifyKey) socket.join(`user:${notifyKey}`);
 
     // Resolved once per connection and reused for every scoped join below —
     // an ecno with no assigned hierarchy resolves to [] (sees nothing),
@@ -340,6 +345,7 @@ app.use(cors({
 
 app.use(express.json({ limit: "50mb" }));
 app.use(express.urlencoded({ extended: true, limit: "50mb" }));
+app.use(normalizeTextCase);
 
 // ----------------------------
 // SESSION (in-memory store — Redis store commented out, will be reintegrated later)
@@ -512,5 +518,5 @@ server.listen(PORT, () => {
     console.log(`Server running on port ${PORT} [${process.env.NODE_ENV || "development"}]`);
     console.log(`API Docs → http://localhost:${PORT}/api-docs`);
     console.log(` Health  → http://localhost:${PORT}/health`);
-    startServiceAgreementScheduledJobs();
+    startServiceAgreementScheduledJobs(io);
 });

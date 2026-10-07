@@ -8,6 +8,7 @@ class WorkFlowApprovalService {
   static getWorkflows()                  { return this.repo.getWorkflows(); }
   static getEntityTypes()                { return this.repo.getEntityTypes(); }
   static getWorkflowByEntity(entityType) { return this.repo.getWorkflowByEntity(entityType); }
+  static getConditionFields(entityType)  { return this.repo.getConditionFields(entityType); }
   static updateWorkflow(data)            { return this.repo.updateWorkflow(data); }
 
   static deleteWorkflow(data) {

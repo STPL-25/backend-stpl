@@ -1,9 +1,15 @@
 import ServiceAgreementService from "../services/ServiceAgreement.service.js";
 import { dispatchServicePo } from "../services/ServicePoDispatch.service.js";
+import { notifyApproversNow } from "../jobs/AgreementPoJob.js";
 import { invalidateCacheByPattern } from "../../Middleware/redisCache.js";
 import { ftpUploader } from "../../Utils/ImagesUpload/ImgUpload.js";
 
 const AGREEMENT_DOC_SUBDIRECTORY = "NON_TRADE_DATAS/SERVICE_AGREEMENTS";
+const SIGNED_DOC_SUBDIRECTORY = "NON_TRADE_DATAS/SERVICE_AGREEMENTS_SIGNED";
+
+// Every list/approval screen for service agreements listens on this room.
+const notifyAgreementChange = (req, payload) =>
+  req.io?.to("service_agreement:approval").emit("service_agreement:approval:updated", payload);
 
 // The create/edit forms post multipart FormData, so the supplier split and the
 // Statutory facility block arrive as JSON strings (or already-parsed values when
@@ -122,6 +128,10 @@ class ServiceAgreementController {
         created_by: ecno,
       });
 
+      await invalidateCacheByPattern(req.redisClient, "service_agreement:list:*");
+      notifyAgreementChange(req, { action: "created", approved_by: ecno });
+      notifyApproversNow(req.io);
+
       res.json({ success: true, data });
     } catch (error) {
       console.error("Error in createServiceAgreement:", error);
@@ -192,6 +202,10 @@ class ServiceAgreementController {
         edited_by: ecno,
       });
 
+      await invalidateCacheByPattern(req.redisClient, "service_agreement:list:*");
+      notifyAgreementChange(req, { agreement_sno, action: "updated", approved_by: ecno });
+      notifyApproversNow(req.io);
+
       res.json({ success: true, data });
     } catch (error) {
       console.error("Error in updateServiceAgreement:", error);
@@ -201,15 +215,18 @@ class ServiceAgreementController {
 
   static async approveServiceAgreement(req, res) {
     try {
-      const { agreement_sno, comments, approval_stages, action } = req.body;
+      const { agreement_sno, comments, approval_stages, action, send_back_to } = req.body;
       const ecno = req.user_ecno;
 
       if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
       if (!agreement_sno || !action) {
         return res.status(400).json({ success: false, error: "agreement_sno and action are required" });
       }
-      if (action === "reject" && !comments?.trim()) {
-        return res.status(400).json({ success: false, error: "comments are required when rejecting" });
+      if ((action === "reject" || action === "send_back") && !comments?.trim()) {
+        return res.status(400).json({ success: false, error: `comments are required when ${action === "reject" ? "rejecting" : "sending back"}` });
+      }
+      if (action === "send_back" && !send_back_to) {
+        return res.status(400).json({ success: false, error: "send_back_to is required when sending back" });
       }
 
       const data = await ServiceAgreementService.approveServiceAgreement({
@@ -220,15 +237,20 @@ class ServiceAgreementController {
         comments: comments || "",
         approval_stages,
         action,
+        send_back_to,
       });
+
+      // The SP reports validation/runtime failures as an ERROR row rather than throwing.
+      if (data?.[0]?.result === "ERROR") {
+        return res.status(400).json({ success: false, error: data[0].error_message || "Action failed" });
+      }
 
       await invalidateCacheByPattern(req.redisClient, "service_agreement:list:*");
 
-      req.io.to("service_agreement:approval").emit("service_agreement:approval:updated", {
-        agreement_sno,
-        action,
-        approved_by: ecno,
-      });
+      notifyAgreementChange(req, { agreement_sno, action, approved_by: ecno });
+      notifyApproversNow(req.io);
+      // Final approval raises the first PO cycle straight away — tell the Service PO screens too.
+      req.io?.to("service_po:approval").emit("service_po:approval:updated", { agreement_sno, action: "cycle_created" });
 
       res.json({ success: true, data });
 
@@ -241,6 +263,37 @@ class ServiceAgreementController {
         );
       }
     } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // Signed/scanned copy of an Approved agreement. Several uploads are kept; the
+  // newest one is what the list shows as the current signed copy.
+  static async uploadSignedAgreement(req, res) {
+    try {
+      const ecno = req.user_ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const agreement_sno = Number(req.body.agreement_sno);
+      if (!Number.isInteger(agreement_sno) || agreement_sno <= 0) {
+        return res.status(400).json({ success: false, error: "agreement_sno is required" });
+      }
+      const file = Array.isArray(req.files) ? req.files.find((f) => f.fieldname === "signed_document") || req.files[0] : null;
+      if (!file) return res.status(400).json({ success: false, error: "The signed agreement file is required" });
+
+      const doc_url = await ftpUploader.uploadFileIfExists(file, SIGNED_DOC_SUBDIRECTORY);
+      if (!doc_url) return res.status(500).json({ success: false, error: "File upload failed, please try again" });
+
+      const data = await ServiceAgreementService.uploadSignedDoc({
+        agreement_sno, doc_url, remarks: req.body.remarks, uploaded_by: ecno,
+      });
+
+      await invalidateCacheByPattern(req.redisClient, "service_agreement:list:*");
+      notifyAgreementChange(req, { agreement_sno, action: "signed_uploaded", approved_by: ecno });
+
+      res.json({ success: true, data });
+    } catch (error) {
+      console.error("Error in uploadSignedAgreement:", error);
       res.status(500).json({ success: false, error: error.message });
     }
   }

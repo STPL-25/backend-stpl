@@ -25,6 +25,18 @@ class ServicePoRepository {
     return this.executeJsonProcedure("sp_nt_ApproveServicePoCycle", approvalData);
   }
 
+  async uploadInvoice(payload) {
+    return this.executeJsonProcedure("sp_nt_UploadServicePoInvoice", payload);
+  }
+
+  async attachEntryInvoice(payload) {
+    return this.executeJsonProcedure("sp_nt_AttachServicePoEntryInvoice", payload);
+  }
+
+  async getInvoices(filters = {}) {
+    return this.executeJsonProcedure("sp_nt_GetServicePoInvoices", filters);
+  }
+
   async getServicePoCycles(filters = {}) {
     return this.executeJsonProcedure("sp_nt_GetServicePoCycles", filters);
   }

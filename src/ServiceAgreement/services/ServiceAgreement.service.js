@@ -13,12 +13,30 @@ function parseJson(value, fallback = null) {
 }
 
 function withParsedAgreementColumns(row) {
-  const { vendors_json, prev_terms_json, ...rest } = row;
+  const { vendors_json, prev_terms_json, history_json, ...rest } = row;
   return {
     ...rest,
     vendors: parseJson(vendors_json, []),
+    ...(history_json !== undefined ? { history: parseJson(history_json, []) } : {}),
     ...(prev_terms_json !== undefined ? { prev_terms: parseJson(prev_terms_json) } : {}),
   };
+}
+
+// Signed copies uploaded after approval (newest first). Merged in here rather than
+// inside the big list procs so those stay untouched: each agreement row gets
+// signed_docs[] and signed_doc_url (the current/newest one).
+async function attachSignedDocs(repo, rows) {
+  if (!rows.length) return rows;
+  const docs = await repo.getSignedDocs({});
+  const byAgreement = new Map();
+  for (const d of docs) {
+    if (!byAgreement.has(d.agreement_sno)) byAgreement.set(d.agreement_sno, []);
+    byAgreement.get(d.agreement_sno).push(d);
+  }
+  return rows.map((r) => {
+    const signed_docs = byAgreement.get(r.agreement_sno) ?? [];
+    return { ...r, signed_docs, signed_doc_url: signed_docs[0]?.doc_url ?? null };
+  });
 }
 
 class ServiceAgreementService {
@@ -38,12 +56,16 @@ class ServiceAgreementService {
 
   static async getServiceAgreements(filters) {
     const rows = await this.repo.getServiceAgreements(filters);
-    return rows.map(withParsedAgreementColumns);
+    return attachSignedDocs(this.repo, rows.map(withParsedAgreementColumns));
   }
 
   static async getServiceAgreementsForApproval(ecno) {
     const rows = await this.repo.getServiceAgreementsForApproval(ecno);
-    return rows.map(withParsedAgreementColumns);
+    return attachSignedDocs(this.repo, rows.map(withParsedAgreementColumns));
+  }
+
+  static async uploadSignedDoc(payload) {
+    return this.repo.uploadSignedDoc(payload);
   }
 
   // Returns null when the agreement doesn't exist.

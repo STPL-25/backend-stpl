@@ -6,6 +6,7 @@ const ServiceAgreementRouter = express.Router();
 
 ServiceAgreementRouter.post("/createServiceAgreement", upload.any(), ServiceAgreementController.createServiceAgreement);
 ServiceAgreementRouter.post("/updateServiceAgreement", upload.any(), ServiceAgreementController.updateServiceAgreement);
+ServiceAgreementRouter.post("/uploadSignedAgreement", upload.any(), ServiceAgreementController.uploadSignedAgreement);
 ServiceAgreementRouter.post("/approveServiceAgreement", ServiceAgreementController.approveServiceAgreement);
 ServiceAgreementRouter.get("/getServiceAgreements", ServiceAgreementController.getServiceAgreements);
 ServiceAgreementRouter.get("/getServiceAgreementsForApproval", ServiceAgreementController.getServiceAgreementsForApproval);

@@ -60,6 +60,10 @@ BEGIN
 
         IF @split_pr_no IS NULL SET @split_pr_no = @pr_no;
 
+        -- No terms supplied (or blank) -> fall back to the scope's T&C master text.
+        IF NULLIF(LTRIM(RTRIM(@terms_conditions)), '') IS NULL
+            SET @terms_conditions = dbo.fn_nt_DefaultTermsText(@com_sno, @div_sno, @brn_sno, @dept_sno);
+
         IF NOT EXISTS (SELECT 1 FROM OPENJSON(@jsonInput, '$.items'))
             THROW 51003, 'No items found in JSON.', 1;
 

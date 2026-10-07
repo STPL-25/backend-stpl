@@ -36,6 +36,7 @@ const REQUIRED_FIELDS = {
   // uom_con_factor is left blank on purpose. Products using such a unit
   // supply their own prod_uom_con_factor instead (see ProductMaster below).
   UomMaster: ["uom_code", "uom_name", "uom_class", "uom_base_uom_flag"],
+  UomClassMaster: ["uom_class_code", "uom_class_name"],
   GSTStateCodeMaster: ["gst_state_un_name", "gst_code", "gst_alpha_code"],
   AcYearMaster: ["ac_year_code", "ac_year"],
   PriorityMaster: ["priority_name", "priority_desc"],
@@ -55,6 +56,7 @@ const REQUIRED_FIELDS = {
   WorkflowMaster: ["workflow_name", "workflow_code", "entity_type"],
   TransportMaster: ["transport_name"],
   BankAccountTypeMaster: ["account_type_code", "account_type_name"],
+  PaymentTermsMaster: ["payment_terms_code", "payment_terms_name"],
   WarehouseLocationMaster: ["location_code", "location_name", "com_snos"],
   DesignationMaster: ["designation_code", "designation_name"],
   SupplierCatagoryMaster: ["supp_cat_name"],

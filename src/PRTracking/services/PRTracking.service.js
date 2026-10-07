@@ -41,6 +41,9 @@ class PRTrackingService {
       prCore,
     ] = await repository.getPRTrackingTimeline(pr_no);
 
+    // sql/99 — null when the engine has no record of this PR
+    const approvalEngine = await repository.getApprovalEngine(pr_no);
+
     return {
       prHeader,
       quotations,
@@ -59,6 +62,8 @@ class PRTrackingService {
       // and the PR row itself (status + who it is with right now).
       quotationStages,
       prCore,
+      // The engine's stage states and action log: conditional stages, forwards, send-backs, edits.
+      approvalEngine,
     };
   }
 

@@ -50,6 +50,10 @@ class TermsConditionsRepository {
     return this.#executeQuery("sp_nt_DeleteTermsConditions", data);
   }
 
+  async getForScope(scope) {
+    return this.#executeQuery("sp_nt_GetTermsConditionsForScope", scope);
+  }
+
   async getDefault(scope) {
     return this.#executeQuery("sp_nt_GetDefaultTermsConditions", scope);
   }

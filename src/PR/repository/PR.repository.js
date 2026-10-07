@@ -79,17 +79,45 @@ class PRRepository {
     }
   }
 
+  // The engine (sql/99_conditional_approval_engine.sql) reads the stage chain itself —
+  // nothing the browser sends about stages is used. Its own validation errors are
+  // numbered 52xxx; those are meant for the user, so they keep their message (no
+  // "Database error:" prefix) and are flagged so the controller answers 400, not 500.
   async approvePr(approvalData) {
     try {
- 
       const request = mssqlPool.request();
       request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify(approvalData));
-      const result = await request.execute("sp_approve_pr_datas");
-      console.log("Approval result:", result);
+      const result = await request.execute("sp_nt_PrApprovalAct");
       return result.recordset;
     } catch (error) {
-            console.log(error)
+      const number = error?.number ?? error?.originalError?.info?.number;
+      if (number >= 52000 && number < 53000) {
+        const businessError = new Error(error?.originalError?.message || error.message);
+        businessError.userFacing = true;
+        throw businessError;
+      }
+      console.log(error);
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
 
+  // Approval screen context: [summary(+caller's rights), stages, forward targets,
+  // send-back targets, action log].
+  async getApprovalContext(prNo, ecno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("pr_no", mssql.VarChar(30), prNo);
+      request.input("ecno", mssql.VarChar(30), ecno);
+      const result = await request.execute("sp_nt_PrApprovalContext");
+      return result.recordsets;
+    } catch (error) {
+      const number = error?.number ?? error?.originalError?.info?.number;
+      if (number >= 52000 && number < 53000) {
+        const businessError = new Error(error?.originalError?.message || error.message);
+        businessError.userFacing = true;
+        throw businessError;
+      }
+      console.log(error);
       throw new Error(`Database error: ${error.message}`);
     }
   }

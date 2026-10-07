@@ -80,6 +80,19 @@ class KYCServices {
     return { header: header?.[0] ?? null, stages: stages ?? [], history: history ?? [] };
   }
 
+  static async getSupplierFullDetails(source, recordId) {
+    const [basic, addresses, banks, contacts, documents, verifications] =
+      await this.kycRepository.getSupplierFullDetails(source, recordId);
+    return {
+      basic: basic?.[0] ?? null,
+      addresses: addresses ?? [],
+      banks: banks ?? [],
+      contacts: contacts ?? [],
+      documents: documents ?? [],
+      verifications: verifications ?? [],
+    };
+  }
+
   static getPendingApprovals(ecno) {
     return this.kycRepository.getPendingApprovals(ecno);
   }

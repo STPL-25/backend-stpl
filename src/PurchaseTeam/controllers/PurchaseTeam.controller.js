@@ -100,6 +100,18 @@ class PurchaseTeamController {
     }
   }
 
+  static async getQuotationSupplyInfo(req, res) {
+    try {
+      const vendorSno = Number(req.query.vendor_sno);
+      if (!vendorSno) return res.status(400).json({ success: false, error: "vendor_sno required" });
+      const comSno = req.query.com_sno ? Number(req.query.com_sno) : null;
+      const data = await PurchaseTeamService.getQuotationSupplyInfo(vendorSno, comSno);
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   static async selectQuotation(req, res) {
     try {
       const user = getAuthUser(req);

@@ -87,7 +87,10 @@ class PRController {
 
   static async approvePr(req, res) {
     try {
-      const { pr_no, comments, approval_stages, action } = req.body;
+      // approval_stages, if a client still sends it, is ignored: the engine reads the
+      // stage chain itself (a browser-supplied chain cannot be trusted with conditional
+      // routing, alternates or send-back).
+      const { pr_no, comments, action, target_seq, target, edits } = req.body;
       // approved_by comes from the session, never the request body — a
       // client-supplied ecno would let anyone forge who approved a PR.
       const ecno = req.user_ecno;
@@ -96,14 +99,25 @@ class PRController {
       if (!pr_no || !action) {
         return res.status(400).json({ success: false, error: "pr_no and action are required" });
       }
-      if (!["approve", "reject"].includes(action)) {
-        return res.status(400).json({ success: false, error: "action must be 'approve' or 'reject'" });
+      if (!["approve", "reject", "forward", "send_back", "edit", "resubmit"].includes(action)) {
+        return res.status(400).json({
+          success: false,
+          error: "action must be approve, reject, forward, send_back, edit or resubmit",
+        });
       }
-      if (action === "reject" && !comments?.trim()) {
-        return res.status(400).json({ success: false, error: "comments are required when rejecting" });
+      if (["reject", "send_back", "edit"].includes(action) && !comments?.trim()) {
+        return res.status(400).json({ success: false, error: "A comment is required for this action" });
       }
 
-      const data = await PRService.approvePr({ pr_no,approved_by: ecno, comments: comments || "",approval_stages,action  });
+      const data = await PRService.approvePr({
+        pr_no,
+        approved_by: ecno,
+        comments: comments || "",
+        action,
+        target_seq,
+        target,
+        edits,
+      });
       await invalidateCacheByPattern(req.redisClient, "pr:list:*");
 
       // Vendor-driven PRs auto-raise their child PO the instant final
@@ -136,13 +150,15 @@ class PRController {
         }
       }
 
-      // req.io.emit("pr:approval:updated", { pr_no, action, approved_by: ecno });
-
-      // Additive PR-tracking push for the requester's tracking page.
       if (req.io) {
+        // Forward / send-back / edit move a PR between other people's queues, so tell the
+        // open approval screens (they skip refreshing for the actor's own action).
+        req.io.to("pr:approval").emit("pr:approval:updated", { pr_no, action, approved_by: ecno });
+
+        // Additive PR-tracking push for the requester's tracking page.
         req.io.to(`pr:track:${pr_no}`).emit("pr:track:updated", {
           pr_no,
-          stage: action === "approve" ? "PR Approval" : "PR Rejected",
+          stage: action === "reject" ? "PR Rejected" : "PR Approval",
           status: action,
           payload: { approved_by: ecno, comments },
         });
@@ -150,7 +166,36 @@ class PRController {
 
       res.json({ success: true, data, auto_po, message:  `successfully`});
     } catch (error) {
-      res.status(500).json({ success: false, error: error.message });
+      res.status(error.userFacing ? 400 : 500).json({ success: false, error: error.message });
+    }
+  }
+
+  // Everything the approval screen needs for one PR: the stage path with each stage's
+  // state, what the caller may do (approve / forward / send back / edit / resubmit),
+  // the forward and send-back targets, and the action log.
+  static async getApprovalContext(req, res) {
+    try {
+      const ecno = req.user_ecno;
+      const { pr_no } = req.query;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+      if (!pr_no) return res.status(400).json({ success: false, error: "pr_no is required" });
+
+      const [summary, stages, forwardTargets, sendBackTargets, log, fields] = await PRService.getApprovalContext(pr_no, ecno);
+      res.json({
+        success: true,
+        data: {
+          summary: summary?.[0] ?? null,
+          stages: stages ?? [],
+          forwardTargets: forwardTargets ?? [],
+          sendBackTargets: sendBackTargets ?? [],
+          log: log ?? [],
+          // The dictionary for this workflow type's condition rules (labels, units, option sources) — what
+          // "amount" means differs by workflow, so the screen reads it instead of assuming.
+          fields: fields ?? [],
+        },
+      });
+    } catch (error) {
+      res.status(error.userFacing ? 400 : 500).json({ success: false, error: error.message });
     }
   }
 

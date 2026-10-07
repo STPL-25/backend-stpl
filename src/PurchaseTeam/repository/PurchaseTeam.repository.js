@@ -71,6 +71,19 @@ class PurchaseTeamRepository {
     }
   }
 
+  // MSME (from the supplier KYC) + intrastate/interstate (our billing company GSTIN vs supplier GSTIN state prefix).
+  async getQuotationSupplyInfo(vendorSno, comSno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("vendor_sno", mssql.Int, vendorSno);
+      request.input("com_sno", mssql.Int, comSno ?? null);
+      const result = await request.execute("sp_nt_GetQuotationSupplyInfo");
+      return result.recordset[0] ?? null;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
   async selectQuotation(selectedQuotation, selectedBy) {
     try {
       selectedQuotation.selected_by = selectedBy;
@@ -93,7 +106,23 @@ class PurchaseTeamRepository {
   }
 
   async createVendorDrivenPO(poData) {
-    return this.executeStoredProcedure("sp_nt_CreateVendorDrivenPOFromPR", poData);
+    const rows = await this.executeStoredProcedure("sp_nt_CreateVendorDrivenPOFromPR", poData);
+    // The SP's result set doesn't carry terms_conditions; the PO PDF needs the
+    // scope-resolved T&C text, so attach what the SP just stored on the PO.
+    try {
+      const poSno = rows?.[0]?.po_basic_sno;
+      if (poSno) {
+        const request = mssqlPool.request();
+        request.input("po_basic_sno", mssql.Int, poSno);
+        const result = await request.query(
+          `SELECT terms_conditions FROM po_request_info WHERE po_basic_sno = @po_basic_sno`
+        );
+        rows[0].terms_conditions = result.recordset?.[0]?.terms_conditions ?? null;
+      }
+    } catch (err) {
+      console.error("Unable to attach terms_conditions to vendor-driven PO:", err.message);
+    }
+    return rows;
   }
 
   // Vendor contact for the "PO generated" email — vendor_sno on a PO is the

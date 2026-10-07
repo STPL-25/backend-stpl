@@ -39,6 +39,18 @@ class UserApprovalRepository {
       throw new Error(`Database error: ${error.message}`);
     }
   }
+ // Identities (ecno / login_id) whose saved scope overlaps the given admin hierarchy,
+ // plus everyone who already has a scope row (so the caller can keep unassigned users visible).
+ async getUserIdentitiesInScope(hierarchy) {
+        try {
+            const request = mssqlPool.request();
+            request.input("HierarchyJson", mssql.NVarChar(mssql.MAX), JSON.stringify(hierarchy ?? []));
+            const result = await request.execute("sp_nt_GetUserIdentitiesInScope");
+            return { inScope: result.recordsets[0] ?? [], assigned: result.recordsets[1] ?? [] };
+        } catch (error) {
+            throw new Error(`Error fetching users in scope: ${error.message}`);
+        }
+    }
  async getAllCompanyByHierarchy() {
         try {
             const storedProcedure = this.storedProcedureMap['getCompanyDetailsByHierarchy']; 

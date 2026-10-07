@@ -55,6 +55,14 @@ class ServiceAgreementRepository {
     }
   }
 
+  async uploadSignedDoc(payload) {
+    return this.executeJsonProcedure("sp_nt_UploadServiceAgreementSignedDoc", payload);
+  }
+
+  async getSignedDocs(filters = {}) {
+    return this.executeJsonProcedure("sp_nt_GetServiceAgreementSignedDocs", filters);
+  }
+
   async approveServiceAgreement(approvalData) {
     return this.executeJsonProcedure("sp_approve_service_agreement", approvalData);
   }
@@ -130,6 +138,49 @@ class ServiceAgreementRepository {
     } catch (error) {
       throw new Error(`Database error: ${error.message}`);
     }
+  }
+
+  // sql/103: claims today's notification-date / PO-date / overdue alerts and returns one row
+  // per (alert, recipient) — the approver and the PO-raising department.
+  async claimServicePoAlerts() {
+    try {
+      const result = await mssqlPool.request().execute("sp_nt_ClaimServicePoAlerts");
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async markServicePoAlertSent(payload) {
+    return this.executeJsonProcedure("sp_nt_MarkServicePoAlertSent", payload);
+  }
+
+  // sql/104: pending approvals the approver hasn't been told about yet (all approval types).
+  async claimApprovalNotices() {
+    try {
+      const result = await mssqlPool.request().execute("sp_nt_ClaimApprovalNotices");
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  // sql/115: approver replaced in a workflow -> notices for the old and the new approver.
+  async claimApproverChangeNotices() {
+    try {
+      const result = await mssqlPool.request().execute("sp_nt_ClaimApproverChangeNotices");
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async markApproverChangeNoticeSent(payload) {
+    return this.executeJsonProcedure("sp_nt_MarkApproverChangeNoticeSent", payload);
+  }
+
+  async markApprovalNoticeSent(payload) {
+    return this.executeJsonProcedure("sp_nt_MarkApprovalNoticeSent", payload);
   }
 
   async markAgreementNotificationSent(payload) {

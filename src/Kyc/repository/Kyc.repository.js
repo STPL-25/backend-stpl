@@ -59,6 +59,19 @@ class KYCRepo {
     }
   }
 
+  // Everything entered for one supplier: [basic, addresses, banks, contacts, documents, verifications]
+  async getSupplierFullDetails(source, recordId) {
+    try {
+      const request = mssqlPool.request();
+      request.input("source", mssql.VarChar(12), source);
+      request.input("record_id", mssql.Int, recordId);
+      const result = await request.execute("sp_nt_GetSupplierFullDetails");
+      return result.recordsets;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
   async getPendingApprovals(ecno) {
     try {
       console.log("Fetching pending approvals for ECNO:", ecno);

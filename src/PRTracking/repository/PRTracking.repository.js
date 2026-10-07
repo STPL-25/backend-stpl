@@ -45,6 +45,23 @@ class PRTrackingRepository {
     }
   }
 
+  // The conditional-approval engine's view of the PR (sql/99): which stages it needs, the state of each,
+  // and every approve / forward / send-back / edit. Best-effort by design — an older database without the
+  // engine (or a PR it does not know) just returns null and the tracker falls back to the plain history.
+  async getApprovalEngine(pr_no) {
+    try {
+      const request = mssqlPool.request();
+      request.input("pr_no", mssql.VarChar(30), pr_no);
+      request.input("ecno", mssql.VarChar(30), "");
+      const result = await request.execute("sp_nt_PrApprovalContext");
+      const [summary, stages, , , log] = result.recordsets;
+      if (!summary?.[0]?.has_instance) return null;
+      return { summary: summary[0], stages: stages ?? [], log: log ?? [] };
+    } catch {
+      return null;
+    }
+  }
+
   async getPrNoByPoBasicSno(po_basic_sno) {
     try {
       const request = mssqlPool.request();

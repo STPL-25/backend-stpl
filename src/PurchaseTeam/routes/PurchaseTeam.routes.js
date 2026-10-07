@@ -18,6 +18,7 @@ PurchaseTeamRouter.get("/getApprovedVendors",  PurchaseTeamController.getApprove
 // Supplier quotation
 PurchaseTeamRouter.post("/createSupplierQuotation", upload.any(), PurchaseTeamController.createSupplierQuotation);
 PurchaseTeamRouter.get("/getSupplierQuotations/:prBasicSno/:pr_no", PurchaseTeamController.getSupplierQuotations);
+PurchaseTeamRouter.get("/getQuotationSupplyInfo", PurchaseTeamController.getQuotationSupplyInfo);
 PurchaseTeamRouter.post("/selectQuotation", PurchaseTeamController.selectQuotation);
 
 // Create PO from selected quotation

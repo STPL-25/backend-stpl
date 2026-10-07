@@ -19,6 +19,10 @@ class PRService {
     return this.PRRepository.approvePr(approvalData);
   }
 
+  static async getApprovalContext(prNo, ecno) {
+    return this.PRRepository.getApprovalContext(prNo, ecno);
+  }
+
   // ── DRAFT OPERATIONS ─────────────────────────────────────────────────────
 
   static async saveDraft(redisClient, ecno, draftData) {

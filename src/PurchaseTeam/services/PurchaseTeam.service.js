@@ -31,6 +31,10 @@ class PurchaseTeamService {
     return this.repo.getSupplierQuotations(prBasicSno,pr_no);
   }
 
+  static async getQuotationSupplyInfo(vendorSno, comSno) {
+    return this.repo.getQuotationSupplyInfo(vendorSno, comSno);
+  }
+
   static async selectQuotation(selectedQuotation, selectedBy) {
     return this.repo.selectQuotation(selectedQuotation, selectedBy);
   }

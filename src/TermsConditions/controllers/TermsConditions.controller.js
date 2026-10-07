@@ -41,6 +41,22 @@ class TermsConditionsController {
     }
   }
 
+  // GET /getTermsConditionsForScope?com_sno=&div_sno=&brn_sno=&dept_sno=
+  // Every active entry for the scope (default first) — PO creation lets the
+  // buyer switch between them.
+  static async getForScope(req, res) {
+    try {
+      const { com_sno, div_sno, brn_sno, dept_sno } = req.query;
+      const rows = await TermsConditionsService.getForScope({
+        com_sno: Number(com_sno), div_sno: Number(div_sno),
+        brn_sno: Number(brn_sno), dept_sno: Number(dept_sno),
+      });
+      res.json({ success: true, data: rows ?? [] });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
   // GET /getDefaultTermsConditions?com_sno=&div_sno=&brn_sno=&dept_sno=
   // Used by PO creation to prefill the terms_conditions textarea. Returns
   // {success:true, data:null} (not an error) when no default is configured

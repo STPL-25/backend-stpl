@@ -1,0 +1,57 @@
+-- ============================================================
+-- KYC Approval screen: Address / Contact details panels always empty or wrong.
+-- Database: Non_trade_Dev ONLY (Non_Trade/prod does not have this drift — see below).
+--
+-- Problem (reported 2026-09-28): on the KYC Approval screen the Addresses
+-- panel showed "No addresses found" and the Contacts panel showed bank
+-- account fields (or nothing), even though kyc_address_info and
+-- kyc_contact_info had real rows for the record.
+--
+-- Root cause: dbo.kyc_basic_info gained a new column, vendor_category
+-- (sql/91_service_vendor_kyc_module.sql, 2026-09-22), but dbo.vw_get_all_kyc_info
+-- -- which does `SELECT bf.*, (address JSON), (bank JSON), (contact JSON),
+-- (docs JSON) FROM kyc_basic_info bf` -- was never refreshed afterward.
+--
+-- SQL Server persists a view's column metadata (sys.columns) at CREATE/ALTER
+-- time and does NOT auto-update it when a `SELECT *`-referenced table gains
+-- columns. So the view kept advertising 38 columns (34 basic-info + 4 JSON
+-- blocks) while its actual expanded query text was now producing 39 values
+-- per row (35 basic-info, including vendor_category, + 4 JSON blocks). The
+-- extra value shifted every JSON block's data into the NEXT column's stale
+-- name:
+--   kyc_address         <- got vendor_category's value (often NULL)
+--   kyc_bank_info        <- got the real address JSON
+--   kyc_contact_details  <- got the real bank JSON  (this is what the
+--                           Contacts panel was actually rendering)
+--   kyc_uploaded_doc     <- got the real contact JSON
+--   (the real documents JSON, now a 39th value, had no name slot at all)
+--
+-- sp_get_kyc_approval (sql/95) masked this for Account Type only, because it
+-- re-derives kyc_bank_info itself from kyc_bank_info the TABLE via its own
+-- correlated subquery rather than trusting vw_get_all_kyc_info's value. It
+-- never touched kyc_address / kyc_contact_details / kyc_uploaded_doc, so
+-- those kept passing the corrupted, shifted values straight to the screen.
+--
+-- Fix: sp_refreshview re-syncs the view's persisted column metadata with its
+-- current query text. No view logic, table data, or dependent SP changes --
+-- verified via direct sp_get_kyc_approval call (sno=114) that all four JSON
+-- blocks (address/bank/contact/docs) line up with their real column names
+-- again. This also fixes the same latent corruption for every other
+-- consumer of vw_get_all_kyc_info (sp_nt_ApproveSupplierQuotation,
+-- sp_nt_GetQuotationsForApproval, sp_nt_ApproveServicePoCycle) -- they were
+-- never audited for it, so no specific bug is claimed fixed there, but they
+-- were reading from the same broken view shape.
+--
+-- Why Non_Trade (prod) does not need this: kyc_basic_info there has no
+-- vendor_category column (Service Vendor KYC / sql/91 was Dev-only per
+-- [[project-service-agreement-workflow]] memory), so its view metadata
+-- (34 + 4 = 38 columns) is already in sync. Confirmed by querying
+-- sys.columns on both DBs before applying this.
+--
+-- Idempotent / safe to re-run: sp_refreshview only updates metadata, never
+-- touches data. Re-run this any time a JSON-aggregating view built on
+-- `SELECT bf.*` stops matching its underlying table after an ALTER TABLE.
+-- ============================================================
+
+EXEC sp_refreshview 'dbo.vw_get_all_kyc_info';
+GO

@@ -1,5 +1,6 @@
 import WorkFlowApprovalService from "../services/WorkFlowApproval.service.js";
 import { invalidateCache, invalidateCacheByPattern } from "../../Middleware/redisCache.js";
+import { runApproverChangeNoticeSweep } from "../../ServiceAgreement/jobs/AgreementPoJob.js";
 
 class WorkFlowApprovalController {
   // POST /saveFullWorkflow — creates all 3 tables in one SP call
@@ -35,6 +36,19 @@ class WorkFlowApprovalController {
   static async getEntityTypes(req, res) {
     try {
       const data = await WorkFlowApprovalService.getEntityTypes();
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // GET /getConditionFields?entity_type=PurchaseRequisition — which values a stage condition can test
+  // for that kind of workflow (label, number|list, option source, unit). Empty = no conditions yet.
+  static async getConditionFields(req, res) {
+    try {
+      const entityType = String(req.query.entity_type ?? "").trim();
+      if (!entityType) return res.status(400).json({ success: false, error: "entity_type is required" });
+      const data = await WorkFlowApprovalService.getConditionFields(entityType);
       res.json({ success: true, data });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
@@ -145,6 +159,8 @@ class WorkFlowApprovalController {
       const result = await WorkFlowApprovalService.saveWorkflowStage(req.body);
       await invalidateCache(req.redisClient, `wf:stages:${req.body.workflow_types_id}`);
       res.status(201).json({ success: true, message: "Workflow stage saved", data: result });
+      // real time: tell the replaced / replacing approvers now instead of waiting for the next sweep
+      runApproverChangeNoticeSweep(req.io).catch((err) => console.error("Approver-change sweep failed:", err.message));
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }
@@ -156,6 +172,8 @@ class WorkFlowApprovalController {
       const result = await WorkFlowApprovalService.updateWorkflowStage(req.body);
       await invalidateCache(req.redisClient, `wf:stages:${req.body.workflow_types_id}`);
       res.json({ success: true, message: "Workflow stage updated", data: result });
+      // real time: tell the replaced / replacing approvers now instead of waiting for the next sweep
+      runApproverChangeNoticeSweep(req.io).catch((err) => console.error("Approver-change sweep failed:", err.message));
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
     }
