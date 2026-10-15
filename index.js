@@ -20,6 +20,7 @@ import BudgetRouter from "./src/Budget/Routes/BudgetRoutes.js";
 import basicAuth from "./src/AuthMiddleware/BasicAuth.js";
 import verifyJWT from "./src/AuthMiddleware/JwtAuth.js";
 import { getHierarchyJson, orgRoomsForHierarchy } from "./src/Middleware/hierarchyScope.js";
+import { paymentSocketRooms } from "./src/Middleware/paymentSocketAccess.js";
 import UserApprovalrouter from "./src/UserApproval/routes/UserApproval.routes.js";
 import Kycrouter from "./src/Kyc/routes/Kyc.routes.js";
 import ServiceAgreementRouter from "./src/ServiceAgreement/routes/ServiceAgreement.routes.js";
@@ -294,13 +295,41 @@ io.on("connection", (socket) => {
         socket.leave("invoice:live");
     });
 
-    socket.on("join-payment", () => {
-        socket.join("payment:live");
+    let paymentSubscribed = false;
+    async function refreshPaymentRooms() {
+        jwt.verify(socket.request.session?.jwt, process.env.JWT_SECRET, { algorithms: ["HS256"] });
+        const rooms = await paymentSocketRooms(socket.user);
+        for (const room of socket.rooms) {
+            if (room === "payment:live" || room.startsWith("payment:live:")) await socket.leave(room);
+        }
+        if (paymentSubscribed && socket.connected && rooms.length) await socket.join(rooms);
+        return rooms.length > 0;
+    }
+    socket.on("join-payment", async (ack) => {
+        paymentSubscribed = true;
+        try {
+            const success = await refreshPaymentRooms();
+            if (typeof ack === "function") ack({ success });
+        } catch {
+            paymentSubscribed = false;
+            for (const room of socket.rooms) if (room.startsWith("payment:live:")) socket.leave(room);
+            if (typeof ack === "function") ack({ success: false });
+        }
     });
 
-    socket.on("leave-payment", () => {
-        socket.leave("payment:live");
+    socket.on("leave-payment", async () => {
+        paymentSubscribed = false;
+        for (const room of socket.rooms) {
+            if (room === "payment:live" || room.startsWith("payment:live:")) await socket.leave(room);
+        }
     });
+    const paymentScopeTimer = setInterval(() => {
+        if (paymentSubscribed) refreshPaymentRooms().catch(() => {
+            for (const room of socket.rooms) if (room.startsWith("payment:live:")) socket.leave(room);
+        });
+    }, 30000);
+    paymentScopeTimer.unref();
+    socket.on("disconnect", () => clearInterval(paymentScopeTimer));
 
     // Inventory room: live stock updates (inventory:updated) and stock
     // request updates (stockrequest:updated), including auto-posted

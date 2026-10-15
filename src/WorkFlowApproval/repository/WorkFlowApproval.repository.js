@@ -75,6 +75,29 @@ class WorkFlowApprovalRepository {
     return this.#executeQuery("sp_nt_GetApprovalConditionFields", { entity_type: entityType });
   }
 
+  // Approval routing (sql/124): which entity_type each request variant (PR regular / vendor-driven,
+  // service agreement Fixed / Unfixed ...) takes its workflow from. Errors are NOT swallowed: an
+  // empty matrix and "could not load" must look different on screen.
+  async getApprovalRoutes() {
+    return this.#executeQuery("sp_nt_GetApprovalRoutes");
+  }
+
+  async saveApprovalRoute(data) {
+    return this.#executeQuery("sp_nt_SaveApprovalRoute", data);
+  }
+
+  async saveApprovalModule(data) {
+    return this.#executeQuery("sp_nt_SaveApprovalModule", data);
+  }
+
+  async saveApprovalVariant(data) {
+    return this.#executeQuery("sp_nt_SaveApprovalVariant", data);
+  }
+
+  async createApprovalVariantEntity(data) {
+    return this.#executeQuery("sp_nt_CreateApprovalVariantEntity", data);
+  }
+
   async getWorkflowByEntity(entityType) {
     try {
       return await this.#executeQuery("sp_nt_GetWorkflowByEntity", { entity_type: entityType });

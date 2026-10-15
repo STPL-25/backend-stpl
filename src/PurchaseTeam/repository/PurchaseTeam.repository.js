@@ -156,6 +156,23 @@ class PurchaseTeamRepository {
     }
   }
 
+  // Primary bank account of a supplier (for the PO PDF's payment block).
+  async getVendorBankDetails(vendor_sno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("vendor_sno", mssql.Int, vendor_sno);
+      const result = await request.query(
+        `SELECT TOP 1 b.ac_holder_name, b.ac_number, b.ifsc, b.bank_name, b.bank_branch_name
+         FROM kyc_bank_info b
+         WHERE b.kyc_basic_info_sno = @vendor_sno AND ISNULL(b.is_active, 'Y') <> 'N'
+         ORDER BY CASE WHEN b.is_primary = 'Y' THEN 0 ELSE 1 END, b.kyc_address_sno`
+      );
+      return result.recordset?.[0] ?? null;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
   // ── UPDATE ITEM QUANTITY ────────────────────────────────────────────────
   async updateItemQuantity(updateData) {
     return this.executeStoredProcedure("sp_nt_UpdatePOItemQuantity", updateData);

@@ -55,6 +55,82 @@ class WorkFlowApprovalController {
     }
   }
 
+  // GET /getApprovalRoutes — the routing matrix (request variant -> approval type) with the
+  // approval types each row may choose from.
+  static async getApprovalRoutes(req, res) {
+    try {
+      const rows = await WorkFlowApprovalService.getApprovalRoutes();
+      const data = rows.map((r) => {
+        let eligible = [];
+        try { eligible = r.eligible_entities ? JSON.parse(r.eligible_entities) : []; } catch { /* leave empty */ }
+        return { ...r, eligible_entities: eligible };
+      });
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // POST /saveApprovalRoute {module_code, variant_code, entity_code, force?}
+  static async saveApprovalRoute(req, res) {
+    try {
+      const { module_code, variant_code, entity_code, force } = req.body ?? {};
+      if (!module_code || !variant_code || !entity_code) {
+        return res.status(400).json({ success: false, error: "module_code, variant_code and entity_code are required" });
+      }
+      const rows = await WorkFlowApprovalService.saveApprovalRoute({
+        module_code, variant_code, entity_code, force: force === true, modified_by: req.user_ecno ?? null,
+      });
+      res.json({ success: true, data: rows?.[0] ?? null });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
+  // POST /saveApprovalModule {module_label, variant_label?, variants?: [{variant_label}]} — a new kind of request
+  static async saveApprovalModule(req, res) {
+    try {
+      const { module_label, variant_label, variants } = req.body ?? {};
+      if (!String(module_label ?? "").trim()) return res.status(400).json({ success: false, error: "module_label is required" });
+      const rows = await WorkFlowApprovalService.saveApprovalModule({
+        module_label, variant_label, variants: Array.isArray(variants) ? variants : [], created_by: req.user_ecno ?? null,
+      });
+      res.status(201).json({ success: true, data: rows?.[0] ?? null });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
+  // POST /saveApprovalVariant {module_code, variant_label} — another variant of an existing request kind
+  static async saveApprovalVariant(req, res) {
+    try {
+      const { module_code, variant_label } = req.body ?? {};
+      if (!module_code || !String(variant_label ?? "").trim()) {
+        return res.status(400).json({ success: false, error: "module_code and variant_label are required" });
+      }
+      const rows = await WorkFlowApprovalService.saveApprovalVariant({ module_code, variant_label, created_by: req.user_ecno ?? null });
+      res.status(201).json({ success: true, data: rows?.[0] ?? null });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
+  // POST /createApprovalVariantEntity {module_code, variant_code} — a dedicated approval type for one variant
+  static async createApprovalVariantEntity(req, res) {
+    try {
+      const { module_code, variant_code } = req.body ?? {};
+      if (!module_code || !variant_code) {
+        return res.status(400).json({ success: false, error: "module_code and variant_code are required" });
+      }
+      const rows = await WorkFlowApprovalService.createApprovalVariantEntity({
+        module_code, variant_code, created_by: req.user_ecno ?? null,
+      });
+      res.status(201).json({ success: true, data: rows?.[0] ?? null });
+    } catch (error) {
+      res.status(400).json({ success: false, error: error.message });
+    }
+  }
+
   // GET /getWorkflowByEntity/:entityType
   static async getWorkflowByEntity(req, res) {
     try {

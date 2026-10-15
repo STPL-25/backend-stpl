@@ -29,10 +29,22 @@ async function safeSave(row) {
   }
 }
 
+// A cache read failure must never block a live lookup; fall through to Cashfree.
+async function cached(verifyType, identifier) {
+  try {
+    return await repo.findValid(verifyType, identifier);
+  } catch (e) {
+    console.error(`[kyc-verification] cache lookup failed for ${verifyType}:`, e.message);
+    return null;
+  }
+}
+
 class KycVerificationService {
   async verifyPan(panRaw) {
     const pan = String(panRaw ?? "").trim().toUpperCase();
     if (!PATTERNS.pan.test(pan)) throw badRequest("Enter a valid 10-character PAN");
+    const hit = await cached("PAN", pan);
+    if (hit) return hit.response;
     const res = await cashfreePost("/pan", { pan });
     await safeSave({ verifyType: "PAN", identifier: pan, referenceId: res.reference_id, isValid: res.valid === true, response: res, summary: { pan_status: res.valid === true ? "ACTIVE" : "INACTIVE" } });
     return res;
@@ -45,6 +57,11 @@ class KycVerificationService {
   async verifyGstin(gstRaw) {
     const gstin = String(gstRaw ?? "").trim().toUpperCase();
     if (!PATTERNS.gstin.test(gstin)) throw badRequest("Enter a valid 15-character GSTIN");
+    const hit = await cached("GSTIN", gstin);
+    // A stored GSTIN is reused only while it was Active; otherwise re-check live.
+    if (hit && String(hit.gstStatus ?? hit.response.gst_in_status ?? "").toUpperCase() === "ACTIVE") {
+      return this.shapeGstin(hit.response, gstin);
+    }
     const res = await cashfreePost("/gstin", { GSTIN: gstin });
     await safeSave({ verifyType: "GSTIN", identifier: gstin, referenceId: res.reference_id, isValid: res.valid === true, response: res,
       summary: {
@@ -53,7 +70,10 @@ class KycVerificationService {
         gst_last_update_date: res.last_update_date,
         nature_of_business_activities: res.nature_of_business_activities,
       } });
+    return this.shapeGstin(res, gstin);
+  }
 
+  shapeGstin(res, gstin) {
     const a = res.principal_place_split_address || {};
     return {
       ...res,
@@ -82,6 +102,8 @@ class KycVerificationService {
   async verifyUdyam(udyamRaw) {
     const udyam = String(udyamRaw ?? "").trim().toUpperCase();
     if (!PATTERNS.udyam.test(udyam)) throw badRequest("Enter a valid Udyam number, e.g. UDYAM-TN-03-0107610");
+    const hit = await cached("UDYAM", udyam);
+    if (hit) return { ...hit.response, msme_certificate_url: hit.certificateUrl };
     const res = await cashfreePost("/udyam", { verification_id: nanoid(20).replace(/[^A-Za-z0-9]/g, "x"), udyam });
 
     // The certificate link Cashfree returns is a pre-signed S3 URL that expires
@@ -110,6 +132,8 @@ class KycVerificationService {
   async verifyIfsc(ifscRaw) {
     const ifsc = String(ifscRaw ?? "").trim().toUpperCase();
     if (!PATTERNS.ifsc.test(ifsc)) throw badRequest("Enter a valid IFSC code");
+    const hit = await cached("IFSC", ifsc);
+    if (hit) return { ...hit.response, valid: true };
     const res = await cashfreePost("/ifsc", { verification_id: nanoid(20).replace(/[^A-Za-z0-9]/g, "x"), ifsc });
     const valid = String(res.status ?? "").toUpperCase() === "VALID" || Boolean(res.bank);
     await safeSave({ verifyType: "IFSC", identifier: ifsc, referenceId: res.reference_id, isValid: valid, response: res });
@@ -124,6 +148,13 @@ class KycVerificationService {
     const body = { bank_account: account, ifsc };
     const name = String(nameRaw ?? "").trim();
     if (name) body.name = name;
+    // Reuse only when the same IFSC was verified and no different holder name is being matched.
+    const hit = await cached("BANK", account);
+    if (hit && hit.response.ifsc_requested === ifsc
+        && (!name || String(hit.response.name_provided ?? "").trim().toLowerCase() === name.toLowerCase())) {
+      const { ifsc_requested: _i, ...rest } = hit.response;
+      return rest;
+    }
     const res = await cashfreePost("/bank-account/sync", body);
     await safeSave({ verifyType: "BANK", identifier: account, referenceId: res.reference_id, isValid: res.account_status === "VALID", response: { ...res, ifsc_requested: ifsc } });
     return res;

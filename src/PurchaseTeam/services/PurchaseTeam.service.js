@@ -151,6 +151,10 @@ class PurchaseTeamService {
     return url;
   }
 
+  static async getVendorBankDetails(vendorSno) {
+    return this.repo.getVendorBankDetails(vendorSno);
+  }
+
   static async updateItemQuantity(updateData) {
     return this.repo.updateItemQuantity(updateData);
   }

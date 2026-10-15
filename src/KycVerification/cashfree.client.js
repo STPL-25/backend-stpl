@@ -1,10 +1,7 @@
 import axios from "axios";
 import { configDotenv } from "dotenv";
 configDotenv();
-// Cashfree Secure ID (Verification Suite) — https://www.cashfree.com/docs/api-reference/vrs
-// Production: https://api.cashfree.com/verification
-// Sandbox:    https://sandbox.cashfree.com/verification
-// Production calls only work from an IP whitelisted in the Cashfree dashboard.
+
 const BASE_URL = process.env.CASH_FREE_URL;
 const TIMEOUT_MS = Number(process.env.CASHFREE_TIMEOUT_MS) || 30000;
 
@@ -24,8 +21,17 @@ export async function cashfreePost(path, body) {
   };
   if (process.env.CASHFREE_API_VERSION) headers["x-api-version"] = process.env.CASHFREE_API_VERSION;
 
+  // Only the gateway has the whitelisted public IP, so it makes the real Cashfree call
+  // (and adds the x-cf-signature public-key header). Without a relay URL, call Cashfree directly.
+  const relayUrl = process.env.CASHFREE_RELAY_URL;
+
+  console.log(`[cashfree] ${path} via ${relayUrl ? `gateway relay ${relayUrl}` : "DIRECT (no CASHFREE_RELAY_URL)"}`);
   try {
-    const res = await axios.post(`${BASE_URL}${path}`, body, { headers, timeout: TIMEOUT_MS });
+    const res = relayUrl
+      ? await axios.post(relayUrl, { path, body }, { headers: { ...headers, "x-internal-token": process.env.CASHFREE_RELAY_TOKEN }, timeout: TIMEOUT_MS })
+      : await axios.post(`${BASE_URL}${path}`, body, { headers, timeout: TIMEOUT_MS });
+
+      console.log( res.data);
     return res.data;
   } catch (e) {
     // Cashfree errors look like { type, code, message } — surface its message as-is.
@@ -33,6 +39,7 @@ export async function cashfreePost(path, body) {
     const err = new Error(data?.message || e.message || "Cashfree verification failed");
     err.statusCode = e.response?.status && e.response.status < 500 ? e.response.status : 502;
     err.code = data?.code;
+    console.log(e)
     throw err;
   }
 }

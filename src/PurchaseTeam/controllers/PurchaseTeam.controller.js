@@ -176,6 +176,17 @@ class PurchaseTeamController {
     }
   }
 
+  static async getVendorBankDetails(req, res) {
+    try {
+      const vendorSno = Number(req.params.vendorSno);
+      if (!Number.isInteger(vendorSno)) return res.status(400).json({ success: false, error: "Invalid vendor" });
+      const data = await PurchaseTeamService.getVendorBankDetails(vendorSno);
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   // ── EMAIL THE GENERATED PO PDF TO THE SUPPLIER ──────────────────────────
   static async sendPOEmail(req, res) {
     

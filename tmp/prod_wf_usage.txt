@@ -1,0 +1,1908 @@
+##### sp_nt_DeleteWorkflow (66 lines)
+  28: 
+  29:         UPDATE dbo.workflow_stage
+  30:         SET is_active   = 'N',
+  31:             modified_by = @modified_by,
+  32:             modified_at = GETDATE()
+  33:         WHERE is_active = 'Y'
+  34:           AND workflow_types_id IN (
+  35:               SELECT workflow_types_id FROM dbo.workflow_types WHERE workflow_id = @workflow_id
+  36:           );
+  37:         SET @stages_deleted = @@ROWCOUNT;
+  38: 
+  39:         UPDATE dbo.workflow_types
+  40:         SET is_active   = 'N',
+  41:             modified_by = @modified_by,
+  42:             modified_at = GETDATE()
+  43:         WHERE workflow_id = @workflow_id
+##### sp_nt_ApproveSupplierQuotation (643 lines)
+  65:                 @dept_sno          INT,
+  66:                 @workflow_types_id INT,
+  67:                 @cur_transfer_from VARCHAR(30),
+  68:                 @sq_pr_no          VARCHAR(30);
+  69: 
+  70:         SELECT
+  76:             @dept_sno          = sq.dept_sno,
+  77:             @workflow_types_id = sq.workflow_types_id,
+  78:             @cur_transfer_from = sq.transferred_from,
+  79:             @sq_pr_no          = sq.pr_no
+  80:         FROM supplier_quotation_info sq
+  81:         INNER JOIN pr_basic_info pr ON pr.pr_basic_sno = sq.pr_basic_sno
+ 152:             INSERT INTO supplier_quotation_history (
+ 153:                 sq_basic_sno, sq_edit_data, is_active, workflow_types_id,
+ 154:                 approver_ecno, status, status_by, transferred_from,
+ 155:                 transferred_to, comment, action_type, pr_basic_sno,
+ 156:                 selected_by, pr_no
+ 157:             )
+ 158:             SELECT
+ 159:                 sq.sq_basic_sno, NULL, 1, sq.workflow_types_id,
+ 160:                 @approved_by, 'R', @approved_by, sq.transferred_from,
+ 161:                 sq.transferred_to, @comments, 'REJECTED', sq.pr_basic_sno,
+ 162:                 NULL, sq.pr_no
+ 163:             FROM supplier_quotation_info sq
+ 214:             INSERT INTO supplier_quotation_history (
+ 215:                 sq_basic_sno, sq_edit_data, is_active, workflow_types_id,
+ 216:                 approver_ecno, status, status_by, transferred_from,
+ 217:                 transferred_to, comment, action_type, pr_basic_sno,
+ 218:                 selected_by, pr_no
+ 219:             )
+ 220:             SELECT
+ 221:                 sq.sq_basic_sno, NULL, 1, sq.workflow_types_id,
+ 222:                 @transfer_to, sq.status, @approved_by, @approved_by,
+ 223:                 @transfer_to, @comments, UPPER(@action), sq.pr_basic_sno,
+ 224:                 sq.is_selected, sq.pr_no
+ 225:             FROM supplier_quotation_info sq
+ 274:         INSERT INTO supplier_quotation_history (
+ 275:             sq_basic_sno, sq_edit_data, is_active, workflow_types_id,
+ 276:             approver_ecno, status, status_by, transferred_from,
+ 277:             transferred_to, comment, action_type, pr_basic_sno,
+ 278:             selected_by, pr_no
+ 279:         )
+ 280:         VALUES (
+ 281:             @sq_basic_sno, NULL, 1, @workflow_types_id,
+ 282:             @approved_by,
+ 283:             CASE WHEN @next_approver IS NULL THEN 'A' ELSE 'P' END,
+ 284:             @approved_by, NULL,
+ 285:             NULL,
+ 374:                 terms_conditions,
+ 375:       is_active, workflow_types_id, status,
+ 376:                 po_df_no,
+ 377:                 split_pr_no
+ 378:             )
+ 379:             SELECT
+ 388:                 'Y',
+ 389:                 sq.workflow_types_id,
+ 390:                 'A',
+ 391:                 NULL,
+ 392:                 @pr_no
+ 393:             FROM supplier_quotation_info sq
+ 478:         INSERT INTO supplier_quotation_history (
+ 479:             sq_basic_sno, sq_edit_data, is_active, workflow_types_id,
+ 480:             approver_ecno, status, status_by, transferred_from,
+ 481:             transferred_to, comment, action_type, pr_basic_sno,
+ 482:             selected_by, pr_no
+ 483:         )
+ 484:         VALUES (
+ 485:             @sq_basic_sno, NULL, 1, @workflow_types_id,
+ 486:             @approved_by, 'A', @approved_by, NULL,
+ 487:             NULL,
+ 488:             'PO ' + @po_df_no + CASE WHEN @is_new_po = 1
+ 489:                 THEN ' auto-generated on final quotation approval'
+##### sp_nt_CreateVendorDrivenPOFromPR (152 lines)
+  25:         @purpose NVARCHAR(500),
+  26:         @workflow_types_id INT,
+  27:         @po_basic_sno INT,
+  28:         @po_no VARCHAR(50),
+  29:         @sequence_number INT;
+  30: 
+  41:         @purpose = p.purpose,
+  42:         @workflow_types_id = p.workflow_types_id
+  43:     FROM dbo.pr_basic_info p WITH (UPDLOCK, HOLDLOCK)
+  44:     INNER JOIN dbo.pr_vendor_driven_info pvd ON pvd.pr_basic_sno = p.pr_basic_sno
+  45:     WHERE p.pr_basic_sno = @pr_basic_sno
+  46:       AND p.request_mode = 'VENDOR_DRIVEN'
+  71:                 vendor_sno, brn_sno, dept_sno, com_sno, div_sno, pr_basic_sno,
+  72:                 po_date, required_date, purpose, terms_conditions, is_active, workflow_types_id,
+  73:                 current_approver_id, status, po_df_no
+  74:             )
+  75:             VALUES (
+  76:                 @vendor_sno, @brn_sno, @dept_sno, @com_sno, @div_sno, @pr_basic_sno,
+  77:                 CAST(GETDATE() AS DATE), @required_date, @purpose, dbo.fn_nt_DefaultTermsText(@com_sno, @div_sno, @brn_sno, @dept_sno), 'Y', @workflow_types_id,
+  78:                 NULL, 'A', @po_no
+  79:             );
+  80: 
+  81:             SET @po_basic_sno = SCOPE_IDENTITY();
+##### sp_nt_GetServicePOsForApproval (56 lines)
+  28:         p.com_sno, p.div_sno, p.brn_sno, p.dept_sno,
+  29:         p.workflow_types_id,
+  30:         p.current_approver_id,
+  31:         p.status,
+  32:         (
+  33:             SELECT ws.stage_order_json
+  34:             FROM dbo.workflow_stage ws
+  35:             WHERE ws.workflow_types_id = p.workflow_types_id AND ws.is_active = 'Y'
+  36:         ) AS stage_order_json,
+  37:         (
+  38:             SELECT
+  39:                 pid.po_item_sno, pid.pr_item_sno, pid.service_sno, sm.service_name,
+##### sp_nt_DeleteWorkflowType (54 lines)
+   7: 
+   8:     DECLARE @workflow_types_id INT         = TRY_CAST(JSON_VALUE(@jsonInput, '$.workflow_types_id') AS INT),
+   9:             @modified_by       VARCHAR(20) = JSON_VALUE(@jsonInput, '$.modified_by');
+  10: 
+  11:     IF @workflow_types_id IS NULL
+  12:     BEGIN
+  13:         THROW 50002, N'workflow_types_id is required.', 1;
+  14:         RETURN;
+  15:     END;
+  16: 
+  17:     IF NOT EXISTS (SELECT 1 FROM dbo.workflow_types WHERE workflow_types_id = @workflow_types_id)
+  18:     BEGIN
+  19:         THROW 50003, N'Workflow type not found.', 1;
+  20:         RETURN;
+  21:     END;
+  27: 
+  28:         UPDATE dbo.workflow_stage
+  29:         SET is_active   = 'N',
+  30:             modified_by = @modified_by,
+  31:             modified_at = GETDATE()
+  32:         WHERE workflow_types_id = @workflow_types_id
+  33:           AND is_active = 'Y';
+  34:         SET @stages_deleted = @@ROWCOUNT;
+  35: 
+  36:         UPDATE dbo.workflow_types
+  37:         SET is_active   = 'N',
+  38:             modified_by = @modified_by,
+  39:             modified_at = GETDATE()
+  40:         WHERE workflow_types_id = @workflow_types_id;
+  41: 
+  42:         COMMIT TRANSACTION;
+  43:     END TRY
+  44:     BEGIN CATCH
+  48: 
+  49:     SELECT @workflow_types_id AS workflow_types_id,
+  50:            'N'                AS is_active,
+  51:            @stages_deleted    AS stages_deleted,
+  52:            N'SUCCESS'         AS status,
+  53:            N'Workflow type deleted successfully.' AS message;
+##### sp_nt_GetWorkflowStages (25 lines)
+   6: 
+   7:     DECLARE @workflow_types_id INT = TRY_CAST(JSON_VALUE(@jsonInput, '$.workflow_types_id') AS INT);
+   8: 
+   9:     IF @workflow_types_id IS NULL
+  10:     BEGIN
+  11:         THROW 50002, N'workflow_types_id is required.', 1;
+  12:         RETURN;
+  13:     END;
+  14: 
+  15:     SELECT stage_id,
+  16:            workflow_types_id,
+  17:            stage_order_json,
+  18:            is_active,
+  19:            created_at,
+  20:            modified_at
+  21:     FROM dbo.workflow_stage
+  22:     WHERE workflow_types_id = @workflow_types_id
+  23:       AND is_active = 'Y'
+  24:     ORDER BY stage_id;
+  25: END;
+##### sp_nt_GetServiceVendorKycs (33 lines)
+  22:         svk.is_gst_avail, svk.gst_no, svk.is_msme_avail, svk.msme_no, svk.pan_no, svk.supplier_cat_code,
+  23:         svk.document, svk.remarks, svk.workflow_types_id, svk.current_approver_id, svk.status,
+  24:         svk.kyc_basic_info_sno, svk.created_by, svk.created_at
+  25:     FROM dbo.service_vendor_kyc svk
+  26:     WHERE svk.is_active = 'Y'
+  27:       AND (@com_sno IS NULL OR svk.com_sno = @com_sno)
+##### sp_nt_SaveWorkflowStage (62 lines)
+  12: 
+  13:     DECLARE @workflow_types_id INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.workflow_types_id') AS INT),
+  14:             @stage_order_json  NVARCHAR(MAX) = JSON_VALUE(@jsonInput, '$.stage_order_json'),
+  15:             @created_by        VARCHAR(20)   = JSON_VALUE(@jsonInput, '$.created_by');
+  16: 
+  17:     -- stage_order_json may arrive as a JSON string or as a nested array.
+  20: 
+  21:     IF @workflow_types_id IS NULL
+  22:     BEGIN
+  23:         THROW 50002, N'workflow_types_id is required.', 1;
+  24:         RETURN;
+  25:     END;
+  26: 
+  27:     IF NOT EXISTS (SELECT 1 FROM dbo.workflow_types WHERE workflow_types_id = @workflow_types_id)
+  28:     BEGIN
+  29:         THROW 50003, N'Workflow type not found.', 1;
+  30:         RETURN;
+  31:     END;
+  35:     SELECT TOP 1 @stage_id = stage_id
+  36:     FROM dbo.workflow_stage
+  37:     WHERE workflow_types_id = @workflow_types_id
+  38:       AND is_active = 'Y'
+  39:     ORDER BY stage_id;
+  40: 
+  41:     IF @stage_id IS NOT NULL
+  42:     BEGIN
+  43:         UPDATE dbo.workflow_stage
+  44:         SET modified_data    = stage_order_json,
+  45:             stage_order_json = @stage_order_json,
+  46:             modified_by      = @created_by,
+  47:             modified_at      = GETDATE()
+  51:     BEGIN
+  52:         INSERT INTO dbo.workflow_stage (workflow_types_id, stage_order_json, is_active, created_by)
+  53:         VALUES (@workflow_types_id, @stage_order_json, 'Y', @created_by);
+  54: 
+  55:         SET @stage_id = SCOPE_IDENTITY();
+  56:     END;
+  57: 
+  58:     SELECT @stage_id          AS stage_id,
+  59:            @workflow_types_id AS workflow_types_id,
+  60:            N'SUCCESS'         AS status,
+  61:            N'Workflow stage saved successfully.' AS message;
+  62: END;
+##### sp_nt_GetServiceVendorKycsForApproval (23 lines)
+  11:         svk.is_gst_avail, svk.gst_no, svk.is_msme_avail, svk.msme_no, svk.pan_no, svk.supplier_cat_code,
+  12:         svk.document, svk.remarks, svk.workflow_types_id, svk.current_approver_id, svk.status,
+  13:         (
+  14:             SELECT ws.stage_order_json
+  15:             FROM dbo.workflow_stage ws
+  16:             WHERE ws.workflow_types_id = svk.workflow_types_id AND ws.is_active = 'Y'
+  17:         ) AS stage_order_json
+  18:     FROM dbo.service_vendor_kyc svk
+  19:     WHERE svk.current_approver_id = @Ecno
+  20:       AND svk.status = 'P'
+##### sp_nt_GetBankPaymentVoucher (41 lines)
+  27:            (
+  28:                SELECT ws.stage_order_json FROM dbo.workflow_stage ws
+  29:                WHERE ws.workflow_types_id = v.workflow_types_id AND ws.is_active = 'Y'
+  30:            ) AS stage_order_json
+  31:     FROM dbo.bank_payment_voucher v
+  32:     JOIN dbo.service_agreement sa ON sa.agreement_sno = v.agreement_sno
+  33:     JOIN dbo.service_master sm ON sm.service_sno = sa.service_sno
+##### sp_nt_CreateCallOffPO (100 lines)
+  46:             vendor_sno, brn_sno, dept_sno, com_sno, div_sno, po_date, purpose, terms_conditions, delivery_address,
+  47:             is_active, workflow_types_id, current_approver_id, status, po_df_no,
+  48:             po_type, service_type_sno, is_retrospective, parent_blanket_po_sno, consumed_amount
+  49:         )
+  50:         VALUES (
+  51:             @vendor_sno, @brn_sno, @dept_sno, @com_sno, @div_sno, CAST(GETDATE() AS DATE), @purpose, @terms_conditions, @delivery_address,
+##### sp_nt_UpdateWorkflowStage (61 lines)
+  12: 
+  13:     DECLARE @workflow_types_id INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.workflow_types_id') AS INT),
+  14:             @stage_order_json  NVARCHAR(MAX) = JSON_VALUE(@jsonInput, '$.stage_order_json'),
+  15:             @modified_by       VARCHAR(20)   = JSON_VALUE(@jsonInput, '$.modified_by');
+  16: 
+  17:     IF @stage_order_json IS NULL
+  19: 
+  20:     IF @workflow_types_id IS NULL
+  21:     BEGIN
+  22:         THROW 50002, N'workflow_types_id is required.', 1;
+  23:         RETURN;
+  24:     END;
+  25: 
+  26:     IF NOT EXISTS (SELECT 1 FROM dbo.workflow_types WHERE workflow_types_id = @workflow_types_id)
+  27:     BEGIN
+  28:         THROW 50003, N'Workflow type not found.', 1;
+  29:         RETURN;
+  30:     END;
+  34:     SELECT TOP 1 @stage_id = stage_id
+  35:     FROM dbo.workflow_stage
+  36:     WHERE workflow_types_id = @workflow_types_id
+  37:       AND is_active = 'Y'
+  38:     ORDER BY stage_id;
+  39: 
+  40:     IF @stage_id IS NOT NULL
+  41:     BEGIN
+  42:         UPDATE dbo.workflow_stage
+  43:         SET modified_data    = stage_order_json,
+  44:             stage_order_json = @stage_order_json,
+  45:             modified_by      = @modified_by,
+  46:             modified_at      = GETDATE()
+  50:     BEGIN
+  51:         INSERT INTO dbo.workflow_stage (workflow_types_id, stage_order_json, is_active, created_by)
+  52:         VALUES (@workflow_types_id, @stage_order_json, 'Y', @modified_by);
+  53: 
+  54:         SET @stage_id = SCOPE_IDENTITY();
+  55:     END;
+  56: 
+  57:     SELECT @stage_id          AS stage_id,
+  58:            @workflow_types_id AS workflow_types_id,
+  59:            N'SUCCESS'         AS status,
+  60:            N'Workflow stage updated successfully.' AS message;
+  61: END;
+##### sp_nt_DeleteWorkflowStage (29 lines)
+   7:     DECLARE @stage_id          INT         = TRY_CAST(JSON_VALUE(@jsonInput, '$.stage_id') AS INT),
+   8:             @workflow_types_id INT         = TRY_CAST(JSON_VALUE(@jsonInput, '$.workflow_types_id') AS INT),
+   9:             @modified_by       VARCHAR(20) = JSON_VALUE(@jsonInput, '$.modified_by');
+  10: 
+  11:     IF @stage_id IS NULL AND @workflow_types_id IS NULL
+  12:     BEGIN
+  13:         THROW 50002, N'stage_id or workflow_types_id is required.', 1;
+  14:         RETURN;
+  15:     END;
+  16: 
+  17:     UPDATE dbo.workflow_stage
+  18:     SET is_active   = 'N',
+  19:         modified_by = @modified_by,
+  20:         modified_at = GETDATE()
+  21:     WHERE is_active = 'Y'
+  22:       AND (@stage_id IS NULL OR stage_id = @stage_id)
+  23:       AND (@workflow_types_id IS NULL OR workflow_types_id = @workflow_types_id);
+  24: 
+  25:     SELECT @@ROWCOUNT  AS deleted_count,
+  26:            'N'         AS is_active,
+  27:            N'SUCCESS'  AS status,
+##### sp_approve_service_vendor_kyc (171 lines)
+ 138:                 business_type, is_gst_avail, gst_no, is_msme_avail, msme_no, pan_no, supplier_cat_code,
+ 139:                 approver_ecno, workflow_types_id, status, supp_code, is_active, created_by, created_date
+ 140:             )
+ 141:             VALUES (
+ 142:                 @com_sno, @div_sno, @brn_sno, @dept_sno, @company_name, @contact_person, @email, @mobile_number,
+ 143:                 @business_type, @is_gst_avail, @gst_no, @is_msme_avail, @msme_no, @pan_no, @supplier_cat_code,
+##### sp_nt_GetBankPaymentVouchersForApproval (25 lines)
+  14:            (
+  15:                SELECT ws.stage_order_json FROM dbo.workflow_stage ws
+  16:                WHERE ws.workflow_types_id = v.workflow_types_id AND ws.is_active = 'Y'
+  17:            ) AS stage_order_json
+  18:     FROM dbo.bank_payment_voucher v
+  19:     JOIN dbo.service_agreement sa ON sa.agreement_sno = v.agreement_sno
+  20:     JOIN dbo.service_master sm ON sm.service_sno = sa.service_sno
+##### sp_nt_GetServicePoCyclesForApproval (41 lines)
+  29:                SELECT ws.stage_order_json
+  30:                FROM dbo.workflow_stage ws
+  31:                WHERE ws.workflow_types_id = spc.workflow_types_id AND ws.is_active = 'Y'
+  32:            ) AS stage_order_json
+  33:     FROM dbo.service_po_cycle spc
+  34:     JOIN dbo.service_agreement sa ON sa.agreement_sno = spc.agreement_sno
+  35:     JOIN dbo.service_master sm ON sm.service_sno = sa.service_sno
+##### sp_nt_ResolveBankVoucherWorkflow (26 lines)
+   2:     @com_sno INT, @div_sno INT, @brn_sno INT, @dept_sno INT,
+   3:     @workflow_types_id INT OUTPUT,
+   4:     @first_approver VARCHAR(30) OUTPUT
+   5: AS
+   6: BEGIN
+   7:     SET NOCOUNT ON;
+   8: 
+   9:     SELECT TOP 1 @workflow_types_id = wt.workflow_types_id
+  10:     FROM dbo.workflow_types wt
+  11:     INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+  12:     WHERE wt.com_sno = @com_sno AND wt.div_sno = @div_sno AND wt.brn_sno = @brn_sno AND wt.dept_sno = @dept_sno
+  13:       AND awm.entity_type = 'BankPaymentVoucher' AND wt.is_active = 'Y'
+  14:     ORDER BY wt.workflow_types_id;
+  15: 
+  16:     IF @workflow_types_id IS NULL
+  17:         THROW 58430, 'No BankPaymentVoucher approval workflow is configured for this company/division/branch/department. Configure one in the Approval Workflow 
+  18: 
+  19:     SELECT TOP 1 @first_approver = JSON_VALUE(j.value, '$.approver_ecno')
+  20:     FROM dbo.workflow_stage ws
+  21:     CROSS APPLY OPENJSON(ws.stage_order_json) j
+  22:     WHERE ws.workflow_types_id = @workflow_types_id AND ws.is_active = 'Y' AND j.[key] = '0';
+  23: 
+  24:     IF @first_approver IS NULL
+  25:         THROW 58431, 'No approver found for the first stage of the BankPaymentVoucher workflow.', 1;
+  26: END;
+##### sp_nt_ResolveServicePoWorkflow (31 lines)
+   3:     @com_sno INT, @div_sno INT, @brn_sno INT, @dept_sno INT,
+   4:     @workflow_types_id INT OUTPUT,
+   5:     @first_approver VARCHAR(30) OUTPUT,
+   6:     @service_type_code VARCHAR(30) = NULL
+   7: AS
+   8: BEGIN
+  11: 
+  12:     SELECT @workflow_types_id = wt.workflow_types_id
+  13:     FROM dbo.workflow_types wt
+  14:     INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+  15:     WHERE wt.com_sno = @com_sno AND wt.div_sno = @div_sno
+  16:       AND wt.brn_sno = @brn_sno AND wt.dept_sno = @dept_sno
+  17:       AND awm.entity_type = @entity;
+  18: 
+  19:     IF @workflow_types_id IS NULL
+  20:         THROW 58310, 'No ServicePO workflow configuration found for this company/division/branch/department (approval type for this agreement type).', 1;
+  21: 
+  22:     SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+  23:     FROM dbo.vw_workflow_stages AS ws
+  24:     CROSS APPLY OPENJSON(ws.stages_json) AS s
+  25:     CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+  26:     WHERE ws.workflow_types_id = @workflow_types_id
+  27:       AND s.[key] = '0' AND s2.[key] = '0';
+  28: 
+  29:     IF @first_approver IS NULL
+  30:         THROW 58311, 'No approver found for the first stage of the ServicePO workflow.', 1;
+##### sp_nt_SaveWorkflowType (84 lines)
+  13:     DECLARE @workflow_id                INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.workflow_id') AS INT),
+  14:             @workflow_types_name        NVARCHAR(100) = JSON_VALUE(@jsonInput, '$.workflow_types_name'),
+  15:             @workflow_types_description NVARCHAR(500) = JSON_VALUE(@jsonInput, '$.workflow_types_description'),
+  16:             @com_sno                    INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.com_sno')  AS INT),
+  17:             @div_sno                    INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.div_sno')  AS INT),
+  18:             @brn_sno                    INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.brn_sno')  AS INT),
+  19:             @dept_sno                   INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.dept_sno') AS INT),
+  22: 
+  23:     IF @workflow_id IS NULL OR @workflow_types_name IS NULL
+  24:     BEGIN
+  25:         THROW 50002, N'workflow_id and workflow_types_name are required.', 1;
+  26:         RETURN;
+  27:     END;
+  28: 
+  29:     DECLARE @workflow_name NVARCHAR(50);
+  41:     -- combination was deleted earlier.
+  42:     DECLARE @workflow_types_id INT;
+  43: 
+  44:     SELECT TOP 1 @workflow_types_id = workflow_types_id
+  45:     FROM dbo.workflow_types
+  46:     WHERE workflow_id = @workflow_id
+  47:       AND is_active = 'N'
+  48:       AND ISNULL(brn_sno, -1)  = ISNULL(@brn_sno, -1)
+  49:       AND ISNULL(dept_sno, -1) = ISNULL(@dept_sno, -1);
+  50: 
+  51:     IF @workflow_types_id IS NOT NULL
+  52:     BEGIN
+  53:         UPDATE dbo.workflow_types
+  54:         SET workflow_types_name        = @workflow_types_name,
+  55:             workflow_types_description = @workflow_types_description,
+  56:             workflow_name               = @workflow_name,
+  57:             com_sno                     = @com_sno,
+  58:             div_sno                     = @div_sno,
+  59:             is_active                   = @is_active,
+  61:             modified_at                 = GETDATE()
+  62:         WHERE workflow_types_id = @workflow_types_id;
+  63:     END
+  64:     ELSE
+  65:     BEGIN
+  66:         INSERT INTO dbo.workflow_types (
+  67:             workflow_types_name, workflow_types_description, workflow_id, workflow_name,
+  68:             is_active,           brn_sno,                     dept_sno,
+  69:             com_sno,             div_sno,                     created_by
+  70:         )
+  71:         VALUES (
+  72:             @workflow_types_name, @workflow_types_description, @workflow_id, @workflow_name,
+  73:             @is_active,           @brn_sno,                     @dept_sno,
+  74:             @com_sno,             @div_sno,                     @created_by
+  75:         );
+  76: 
+  77:         SET @workflow_types_id = SCOPE_IDENTITY();
+  78:     END;
+  79: 
+  80:     SELECT @workflow_types_id AS workflow_types_id,
+  81:            @workflow_id       AS workflow_id,
+  82:            N'SUCCESS'         AS status,
+  83:            N'Workflow type saved successfully.' AS message;
+  84: END;
+##### sp_nt_CreateServiceAgreement (153 lines)
+  82:         -- ── Resolve the ServiceAgreement workflow for this org scope ───────
+  83:         DECLARE @workflow_types_id INT, @first_approver VARCHAR(30);
+  84:         SELECT @workflow_types_id = wt.workflow_types_id
+  85:         FROM dbo.workflow_types wt
+  86:         INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+  87:         WHERE wt.com_sno = @com_sno AND wt.div_sno = @div_sno
+  88:           AND wt.brn_sno = @brn_sno AND wt.dept_sno = @dept_sno
+  89:           AND awm.entity_type = dbo.fn_resolve_approval_entity('ServiceAgreement', @service_type_code);
+  90: 
+  91:         IF @workflow_types_id IS NULL
+  92:             THROW 58110, 'No ServiceAgreement workflow configuration found for this company/division/branch/department.', 1;
+  93: 
+  94:         SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+  95:         FROM dbo.vw_workflow_stages AS ws
+  96:         CROSS APPLY OPENJSON(ws.stages_json) AS s
+  97:         CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+  98:         WHERE ws.workflow_types_id = @workflow_types_id
+  99:           AND s.[key] = '0' AND s2.[key] = '0';
+ 100: 
+ 101:         IF @first_approver IS NULL
+ 102:             THROW 58111, 'No approver found for the first stage of the ServiceAgreement workflow.', 1;
+ 114:             period_start_date, period_end_date, agreement_doc_url, remarks, terms_conditions, ceiling_amount,
+ 115:             workflow_types_id, current_approver_id, status, is_active, created_by
+ 116:         )
+ 117:         VALUES (
+ 118:             @agreement_no, @com_sno, @div_sno, @brn_sno, @dept_sno, @service_sno, @vendor_sno,
+ 119:             @qty, @rate_amount, @rate_uom_sno, @recurrence_cadence_sno, @po_generation_day, @notify_days_before,
+ 120:             @period_start_date, @period_end_date, @agreement_doc_url, @remarks, @terms_conditions, @ceiling_amount,
+ 121:             @workflow_types_id, @first_approver, 'P', 'Y', @created_by
+ 122:         );
+ 123: 
+ 124:         DECLARE @agreement_sno INT = SCOPE_IDENTITY();
+ 125: 
+##### sp_nt_UpdateWorkflowType (65 lines)
+  12: 
+  13:     DECLARE @workflow_types_id          INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.workflow_types_id') AS INT),
+  14:             @workflow_types_name        NVARCHAR(100) = JSON_VALUE(@jsonInput, '$.workflow_types_name'),
+  15:             @workflow_types_description NVARCHAR(500) = JSON_VALUE(@jsonInput, '$.workflow_types_description'),
+  16:             @com_sno                    INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.com_sno')  AS INT),
+  17:             @div_sno                    INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.div_sno')  AS INT),
+  18:             @brn_sno                    INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.brn_sno')  AS INT),
+  19:             @dept_sno                   INT           = TRY_CAST(JSON_VALUE(@jsonInput, '$.dept_sno') AS INT),
+  22: 
+  23:     IF @workflow_types_id IS NULL
+  24:     BEGIN
+  25:         THROW 50002, N'workflow_types_id is required.', 1;
+  26:         RETURN;
+  27:     END;
+  28: 
+  29:     IF NOT EXISTS (SELECT 1 FROM dbo.workflow_types WHERE workflow_types_id = @workflow_types_id)
+  30:     BEGIN
+  31:         THROW 50003, N'Workflow type not found.', 1;
+  32:         RETURN;
+  33:     END;
+  35:     DECLARE @before NVARCHAR(MAX) = (
+  36:         SELECT workflow_types_name, workflow_types_description, com_sno, div_sno, brn_sno, dept_sno, is_active
+  37:         FROM dbo.workflow_types
+  38:         WHERE workflow_types_id = @workflow_types_id
+  39:         FOR JSON PATH, WITHOUT_ARRAY_WRAPPER
+  40:     );
+  41: 
+  42:     UPDATE dbo.workflow_types
+  43:     SET workflow_types_name        = ISNULL(@workflow_types_name, workflow_types_name),
+  44:         workflow_types_description = ISNULL(@workflow_types_description, workflow_types_description),
+  45:         com_sno                    = ISNULL(@com_sno,   com_sno),
+  46:         div_sno                    = ISNULL(@div_sno,   div_sno),
+  47:         brn_sno                    = ISNULL(@brn_sno,   brn_sno),
+  48:         dept_sno                   = ISNULL(@dept_sno,  dept_sno),
+  52:         modified_at                = GETDATE()
+  53:     WHERE workflow_types_id = @workflow_types_id;
+  54: 
+  55:     SELECT workflow_types_id,
+  56:            workflow_id,
+  57:            workflow_types_name,
+  58:            workflow_types_description,
+  59:            com_sno, div_sno, brn_sno, dept_sno,
+  60:            is_active,
+  61:            N'SUCCESS' AS status,
+  62:            N'Workflow type updated successfully.' AS message
+  63:     FROM dbo.workflow_types
+  64:     WHERE workflow_types_id = @workflow_types_id;
+  65: END;
+##### sp_nt_GetWorkflowTypes (46 lines)
+  16:             SELECT
+  17:                 wt.workflow_types_id,
+  18:                 wt.workflow_types_name,
+  19:                 wt.workflow_types_description,
+  20:                 wt.com_sno,
+  21:                 wt.div_sno,
+  22:                 wt.brn_sno,
+  23:                 wt.dept_sno,
+  31:                         ws.created_at
+  32:                     FROM workflow_stage ws
+  33:                     WHERE ws.workflow_types_id = wt.workflow_types_id
+  34:                       AND ws.is_active = 'Y'
+  35:                     FOR JSON PATH
+  36:                 ) AS stages
+  37:             FROM workflow_types wt
+  38:             WHERE wt.workflow_id = awm.workflow_id
+  39:               AND wt.is_active = 'Y'
+  40:             FOR JSON PATH
+  41:         ) AS workflow_types
+  42:     FROM approval_workflow_master awm
+  43:     WHERE awm.is_active = 'Y'
+  44:       AND (@workflow_id IS NULL OR awm.workflow_id = @workflow_id)
+  45:     FOR JSON PATH, ROOT('workflows');
+##### sp_nt_SubmitServicePoEntry (72 lines)
+  31: 
+  32:         DECLARE @workflow_types_id INT, @first_approver VARCHAR(30), @st_code VARCHAR(30);
+  33:         SELECT @st_code = st.service_type_code
+  34:         FROM dbo.service_agreement sa
+  35:         JOIN dbo.service_master sm ON sm.service_sno = sa.service_sno
+  36:         JOIN dbo.service_type_master st ON st.service_type_sno = sm.service_type_sno
+  39:             @com_sno = @com_sno, @div_sno = @div_sno, @brn_sno = @brn_sno, @dept_sno = @dept_sno,
+  40:             @workflow_types_id = @workflow_types_id OUTPUT, @first_approver = @first_approver OUTPUT,
+  41:             @service_type_code = @st_code;
+  42: 
+  43:         BEGIN TRANSACTION;
+  44: 
+  55:             remarks = @remarks, status = 'PENDING_APPROVAL',
+  56:             workflow_types_id = @workflow_types_id, current_approver_id = @first_approver,
+  57:             entered_by = @submitted_by, entered_at = GETDATE()
+  58:         WHERE cycle_sno = @cycle_sno;
+  59: 
+  60:         INSERT INTO dbo.service_po_cycle_history (cycle_sno, action_type, status_by, comment)
+##### sp_nt_SaveFullWorkflow (232 lines)
+  60:     ----------------------------------------------------------------
+  61:     -- 5. Parse workflow_types array
+  62:     ----------------------------------------------------------------
+  63:     DECLARE @types NVARCHAR(MAX) = JSON_QUERY(@jsonInput, '$.workflow_types');
+  64: 
+  65:     IF @types IS NULL OR (SELECT COUNT(*) FROM OPENJSON(@types)) = 0
+  66:     BEGIN
+  67:         THROW 50004, N'workflow_types array is empty or missing.', 1;
+  68:         RETURN;
+  69:     END;
+  70: 
+  71:     ----------------------------------------------------------------
+  72:     -- 6. Stage workflow_types rows into temp table
+  73:     ----------------------------------------------------------------
+  74:     IF OBJECT_ID('tempdb..#WFTypes') IS NOT NULL
+  75:         DROP TABLE #WFTypes;
+  76: 
+  79:         arr_key                    INT,
+  80:         workflow_types_name        NVARCHAR(200),
+  81:         workflow_types_description NVARCHAR(500),
+  82:         brn_sno                    INT,
+  83:         dept_sno                   INT,
+  84:         com_sno                    INT,
+  85:         div_sno                    INT,
+  92:         arr_key,
+  93:         workflow_types_name,
+  94:         workflow_types_description,
+  95:         brn_sno,
+  96:         dept_sno,
+  97:         com_sno,
+  98:         div_sno,
+ 103:         CAST(wt.[key] AS INT)                                  AS arr_key,
+ 104:         JSON_VALUE(wt.value, '$.workflow_types_name')          AS workflow_types_name,
+ 105:         JSON_VALUE(wt.value, '$.workflow_types_description')   AS workflow_types_description,
+ 106:         CAST(JSON_VALUE(wt.value, '$.brn_sno')  AS INT)        AS brn_sno,
+ 107:         CAST(JSON_VALUE(wt.value, '$.dept_sno') AS INT)        AS dept_sno,
+ 108:         CAST(JSON_VALUE(wt.value, '$.com_sno')  AS INT)        AS com_sno,
+ 109:         CAST(JSON_VALUE(wt.value, '$.div_sno')  AS INT)        AS div_sno,
+ 136:         ------------------------------------------------------------
+ 137:         -- 7.2 Insert workflow_types rows, one at a time
+ 138:         ------------------------------------------------------------
+ 139:         DECLARE
+ 140:             @cur_row         INT = 1,
+ 141:             @total_rows      INT = (SELECT COUNT(*) FROM #WFTypes),
+ 154:             SELECT
+ 155:                 @wt_name        = workflow_types_name,
+ 156:                 @wt_description = workflow_types_description,
+ 157:                 @wt_brn         = brn_sno,
+ 158:                 @wt_dept        = dept_sno,
+ 159:                 @wt_com         = com_sno,
+ 160:                 @wt_div         = div_sno,
+ 165: 
+ 166:             -- Insert into workflow_types
+ 167:             INSERT INTO dbo.workflow_types (
+ 168:                 workflow_types_name, workflow_types_description, workflow_id, workflow_name,
+ 169:                 is_active,           brn_sno,                    dept_sno,    com_sno,
+ 170:                 div_sno,             created_by
+ 171:             )
+ 172:             VALUES (
+ 183: 
+ 184:             -- Insert into workflow_stage
+ 185:             INSERT INTO dbo.workflow_stage (
+ 186:                 workflow_types_id, stage_order_json, is_active, created_by
+ 187:             )
+ 188:             VALUES (
+ 189:                 @wt_id, @wt_stage_json, 'Y', @created_by
+ 190:             );
+##### usp_InsertVendorDrivenPurchaseRequest (219 lines)
+  27: 
+  28:         @workflow_types_id  INT,
+  29:         @workflow_id        INT,
+  30:         @first_approver     VARCHAR(20),
+  31:         @pr_basic_sno       INT,
+  32:         @financial_year     VARCHAR(10),
+  90:         @workflow_id       = wt.workflow_id,
+  91:         @workflow_types_id = wt.workflow_types_id
+  92:     FROM dbo.workflow_types wt
+  93:     INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+  94:     WHERE wt.com_sno  = @com_sno
+  95:       AND wt.div_sno  = @div_sno
+  96:       AND wt.brn_sno  = @brn_sno
+  99:       AND wt.is_active = 'Y' AND awm.is_active = 'Y'
+ 100:           AND EXISTS (SELECT 1 FROM dbo.workflow_stage act_ws WHERE act_ws.workflow_types_id = wt.workflow_types_id AND act_ws.is_active = 'Y');
+ 101: 
+ 102:     IF @workflow_types_id IS NULL
+ 103:         THROW 59006, 'No VendorDrivenPurchaseRequisition workflow is configured for this organisation scope.', 1;
+ 104: 
+ 105:     SELECT @first_approver = JSON_VALUE(stage_member.value, '$.approver_ecno')
+ 106:     FROM dbo.vw_workflow_stages ws
+ 107:     CROSS APPLY OPENJSON(ws.stages_json) stage_group
+ 108:     CROSS APPLY OPENJSON(JSON_VALUE(stage_group.value, '$.stage_order_json')) stage_member
+ 109:     WHERE ws.workflow_types_id = @workflow_types_id
+ 110:       AND stage_group.[key]  = '0'
+ 111:       AND stage_member.[key] = '0';
+ 112: 
+ 113:     IF @first_approver IS NULL
+ 133:             priority_sno, purpose, request_mode, vendor_sno, payment_cycle_days,
+ 134:             is_active, created_by, created_date, workflow_types_id, current_approver_id, status
+ 135:         )
+ 136:         VALUES
+ 137:         (
+ 138:             @pr_no, @com_sno, @div_sno, @brn_sno, @dept_sno, @reg_date, @required_date,
+ 139:             @priority_sno, @purpose, 'VENDOR_DRIVEN', @vendor_sno, @payment_cycle_days,
+ 140:             'Y', @created_by, GETDATE(), @workflow_types_id, @first_approver, 'P'
+ 141:         );
+ 142: 
+ 143:         SET @pr_basic_sno = SCOPE_IDENTITY();
+ 144: 
+##### usp_InsertPurchaseRequest (216 lines)
+  24:                 @created_by         VARCHAR(20),
+  25:                 @workflow_types_id  INT,
+  26:                 @first_approver     VARCHAR(20),
+  27:                 @workflow_id        INT,
+  28:                 @items_inserted     INT,
+  29:                 @requisition_type   VARCHAR(30),
+ 103:     @workflow_id       = wt.workflow_id,
+ 104:     @workflow_types_id = wt.workflow_types_id
+ 105: FROM workflow_types wt
+ 106: INNER JOIN approval_workflow_master awm
+ 107:     ON awm.workflow_id = wt.workflow_id
+ 108: WHERE wt.brn_sno  = @brn_sno
+ 109:   AND wt.dept_sno = @dept_sno
+ 113:   AND wt.is_active = 'Y' AND awm.is_active = 'Y'
+ 114:           AND EXISTS (SELECT 1 FROM dbo.workflow_stage act_ws WHERE act_ws.workflow_types_id = wt.workflow_types_id AND act_ws.is_active = 'Y');
+ 115:         SELECT @workflow_types_id = workflow_types_id
+ 116:         FROM workflow_types
+ 117:        WHERE brn_sno  = @brn_sno
+ 118:           AND dept_sno = @dept_sno
+ 119:           AND com_sno=@com_sno
+ 120:           AND div_sno=@div_sno
+ 122:           AND is_active = 'Y'
+ 123:           AND EXISTS (SELECT 1 FROM dbo.workflow_stage act_ws WHERE act_ws.workflow_types_id = workflow_types.workflow_types_id AND act_ws.is_active = 'Y');
+ 124: 
+ 125:         IF @workflow_types_id IS NULL
+ 126:             THROW 50006, 'No workflow configuration found for this branch and department.', 1;
+ 127: 
+ 128:         SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+ 129:         FROM vw_workflow_stages AS ws
+ 130:         CROSS APPLY OPENJSON(ws.stages_json) AS s
+ 131:         CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+ 132:         WHERE ws.workflow_types_id = @workflow_types_id
+ 133:           AND s.[key]  = '0'
+ 134:           AND s2.[key] = '0';
+ 135: 
+ 136:         IF @first_approver IS NULL
+ 144:             [is_active],           [created_by],         [created_date],
+ 145:             [workflow_types_id],   [current_approver_id],[status],
+ 146:             [category],            [source_invoice_sno]
+ 147:         )
+ 148:         VALUES
+ 149:         (
+ 153:             'Y',                   @created_by,          GETDATE(),
+ 154:             @workflow_types_id,    @first_approver,      'P',
+ 155:             @category,             @source_invoice_sno
+ 156:         );
+ 157: 
+ 158:         SET @pr_basic_sno = SCOPE_IDENTITY();
+##### sp_nt_GetApprovedPRsForPurchase (212 lines)
+  58:             END                            AS pr_no,
+  59:             pbf.workflow_types_id,
+  60:             pbf.current_approver_id,
+  61:             pbf.status,
+  62:             pbf.pr_no                     AS base_pr_no,  -- Keep base pr_no for joining
+  63: 
+  99:                 SELECT ws.stage_order_json
+ 100:                 FROM workflow_stage ws
+ 101:                 WHERE ws.workflow_types_id = pbf.workflow_types_id
+ 102:                   AND ws.is_active = 'Y'
+ 103:             ) AS stage_order_json,
+ 104: 
+ 105:             (
+ 121:         FROM pr_basic_info pbf
+ 122:         INNER JOIN workflow_types wt
+ 123:             ON pbf.workflow_types_id = wt.workflow_types_id
+ 124:         INNER JOIN vw_ActiveDeptRecords vadr
+ 125:             ON pbf.brn_sno = vadr.brn_sno
+ 126:            AND pbf.dept_sno = vadr.dept_sno
+ 127:         INNER JOIN vw_verified_employees vve
+ 164:         pr_no,
+ 165:         workflow_types_id,
+ 166:         current_approver_id,
+ 167:         status,
+ 168:         pr_item_details,
+ 169:         stage_order_json,
+##### sp_nt_CreateSupplierQuotation (327 lines)
+  32:             @created_by               NVARCHAR(50),
+  33:             @workflow_types_id        INT,
+  34:             @status                   NVARCHAR(50),
+  35:             @is_selected              BIT,
+  36:             @is_active                BIT,
+  37:             @com_sno                  INT,
+ 125:             @workflow_id       = wt.workflow_id,
+ 126:             @workflow_types_id = wt.workflow_types_id
+ 127:         FROM workflow_types wt
+ 128:         INNER JOIN approval_workflow_master awm
+ 129:             ON awm.workflow_id = wt.workflow_id
+ 130:         WHERE wt.brn_sno      = @brn_sno
+ 131:           AND wt.dept_sno     = @dept_sno
+ 136:         SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+ 137:         FROM vw_workflow_stages AS ws
+ 138:         CROSS APPLY OPENJSON(ws.stages_json) AS s
+ 139:         CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+ 140:         WHERE ws.workflow_types_id = @workflow_types_id
+ 141:           AND s.[key]  = '0'
+ 142:           AND s2.[key] = '0';
+ 143: 
+ 144:         INSERT INTO dbo.supplier_quotation_info
+ 161:             is_active,
+ 162:             workflow_types_id,
+ 163:             status,
+ 164:             created_by,
+ 165:             created_date,
+ 166:             modifed_by,
+ 198:             @is_active,
+ 199:             @workflow_types_id,
+ 200:             @status,
+ 201:             @created_by,
+ 202:             GETDATE(),
+ 203:             NULL,
+##### sp_nt_CreateServiceVendorKyc (135 lines)
+  78:         -- ── Resolve the ServiceVendorKYC workflow for this org scope ───────
+  79:         DECLARE @workflow_types_id INT, @first_approver VARCHAR(30);
+  80: 
+  81:         SELECT @workflow_types_id = wt.workflow_types_id
+  82:         FROM dbo.workflow_types wt
+  83:         INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+  84:         WHERE wt.com_sno = @com_sno AND wt.div_sno = @div_sno
+  85:           AND wt.brn_sno = @brn_sno AND wt.dept_sno = @dept_sno
+  86:           AND awm.entity_type = 'ServiceVendorKYC';
+  87: 
+  88:         IF @workflow_types_id IS NULL
+  89:             THROW 58008, 'No ServiceVendorKYC workflow configuration found for this company/division/branch/department.', 1;
+  90: 
+  91:         SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+  92:         FROM dbo.vw_workflow_stages AS ws
+  93:         CROSS APPLY OPENJSON(ws.stages_json) AS s
+  94:         CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+  95:         WHERE ws.workflow_types_id = @workflow_types_id
+  96:           AND s.[key] = '0' AND s2.[key] = '0';
+  97: 
+  98:         IF @first_approver IS NULL
+  99:             THROW 58009, 'No approver found for the first stage of the ServiceVendorKYC workflow.', 1;
+ 103:             business_type, is_gst_avail, gst_no, is_msme_avail, msme_no, pan_no, supplier_cat_code,
+ 104:             document, remarks, workflow_types_id, current_approver_id, status, is_active, created_by,
+ 105:             legal_name, trade_name, gst_status, gst_blk_status, date_of_reg,
+ 106:             ac_holder_name, ac_number, ac_type, ifsc, bank_name, bank_branch_name, bank_address,
+ 107:             preferred_payment_mode
+ 108:         )
+ 111:             @business_type, @is_gst_avail, @gst_no, @is_msme_avail, @msme_no, @pan_no, @supplier_cat_code,
+ 112:             @document, @remarks, @workflow_types_id, @first_approver, 'P', 'Y', @created_by,
+ 113:             @legal_name, @trade_name, @gst_status, @gst_blk_status, @date_of_reg,
+ 114:             @ac_holder_name, @ac_number, @ac_type, @ifsc, @bank_name, @bank_branch_name, @bank_address,
+ 115:             @preferred_payment_mode
+ 116:         );
+##### sp_nt_UpdateServiceAgreement (154 lines)
+  94: 
+  95:         DECLARE @workflow_types_id INT, @first_approver VARCHAR(30);
+  96:         SELECT @workflow_types_id = wt.workflow_types_id
+  97:         FROM dbo.workflow_types wt
+  98:         INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+  99:         WHERE wt.com_sno = @com_sno AND wt.div_sno = @div_sno
+ 100:           AND wt.brn_sno = @brn_sno AND wt.dept_sno = @dept_sno
+ 101:           AND awm.entity_type = dbo.fn_resolve_approval_entity('ServiceAgreement', @service_type_code);
+ 102:         IF @workflow_types_id IS NULL
+ 103:             THROW 58130, 'No ServiceAgreement workflow configuration found for this company/division/branch/department.', 1;
+ 104: 
+ 105:         SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+ 106:         FROM dbo.vw_workflow_stages AS ws
+ 107:         CROSS APPLY OPENJSON(ws.stages_json) AS s
+ 108:         CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+ 109:         WHERE ws.workflow_types_id = @workflow_types_id AND s.[key] = '0' AND s2.[key] = '0';
+ 110:         IF @first_approver IS NULL
+ 111:             THROW 58131, 'No approver found for the first stage of the ServiceAgreement workflow.', 1;
+ 112: 
+ 113:         UPDATE dbo.service_agreement
+ 120:             ceiling_amount = @ceiling_amount,
+ 121:             workflow_types_id = @workflow_types_id, current_approver_id = @first_approver,
+ 122:             status = 'P', modified_by = @edited_by, modified_at = GETDATE()
+ 123:         WHERE agreement_sno = @agreement_sno;
+ 124: 
+ 125:         DECLARE @total_per_cycle DECIMAL(18,2) = ROUND(@rate_amount * @qty, 2), @primary_vendor INT;
+##### sp_approve_service_agreement (265 lines)
+ 100:                 SELECT TOP 1 ws.stage_order_json
+ 101:                 FROM dbo.workflow_stage ws
+ 102:                 JOIN dbo.service_agreement t ON t.workflow_types_id = ws.workflow_types_id
+ 103:                 WHERE t.agreement_sno = @agreement_sno AND ws.is_active = 'Y'
+ 104:             );
+ 105:             IF @fs_json IS NULL OR ISJSON(@fs_json) = 0 SET @fs_json = @approval_stages;
+ 106: 
+##### sp_nt_SelectSupplierQuotation (183 lines)
+  26:     DECLARE @comment            NVARCHAR(500) = JSON_VALUE(@jsonInput, '$.comment');      
+  27:     DECLARE @workflow_types_id  INT           = JSON_VALUE(@jsonInput, '$.workflow_types_id');      
+  28:     DECLARE @approver_ecno      NVARCHAR(100) = JSON_VALUE(@jsonInput, '$.approver_ecno');      
+  29:     DECLARE @pr_no              NVARCHAR(20) = JSON_VALUE(@jsonInput, '$.pr_no');      
+  30:       
+  31:       
+  94:             is_active,      
+  95:             workflow_types_id,      
+  96:             approver_ecno,      
+  97:             status,      
+  98:             status_by,      
+  99:             comment,      
+ 134:             1,                                          -- is_active = new active row      
+ 135:             @workflow_types_id,      
+ 136:             @approver_ecno,      
+ 137:             'A',      
+ 138:             @selected_by,                               -- status_by      
+ 139:             ISNULL(@comment, 'Supplier quotation selected'),      
+##### sp_nt_ClaimServicePoAlerts (137 lines)
+  86:                 EXEC dbo.sp_nt_ResolveServicePoWorkflow @com_sno = @com, @div_sno = @div, @brn_sno = @brn, @dept_sno = @dept,
+  87:                      @workflow_types_id = @wf OUTPUT, @first_approver = @first OUTPUT;
+  88:             END TRY
+  89:             BEGIN CATCH
+  90:                 SET @first = NULL;   -- no ServicePO workflow configured: nobody to tell on the approver side
+  91:             END CATCH
+##### sp_nt_CreateServiceEntry (157 lines)
+  72:         DECLARE @status VARCHAR(20) = 'Approved';
+  73:         DECLARE @workflow_types_id INT = NULL, @current_approver_id VARCHAR(20) = NULL;
+  74: 
+  75:         IF @variance_tolerance_pct IS NOT NULL AND ISNULL(@totalBudgeted, 0) > 0
+  76:         BEGIN
+  77:             SET @variance_pct = (@totalConfirmed - @totalBudgeted) / @totalBudgeted * 100.0;
+  84:                 DECLARE @workflow_id INT;
+  85:                 SELECT @workflow_id = wt.workflow_id, @workflow_types_id = wt.workflow_types_id
+  86:                 FROM dbo.workflow_types wt
+  87:                 INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+  88:                 WHERE wt.brn_sno = @brn_sno AND wt.dept_sno = @dept_sno AND wt.com_sno = @com_sno AND wt.div_sno = @div_sno
+  89:                   AND awm.entity_type = 'ServiceEntry';
+  90: 
+  91:                 IF @workflow_types_id IS NULL
+  92:                     THROW 53005, 'No ServiceEntry workflow configuration found for this branch and department (variance exceeded tolerance).', 1;
+  93: 
+  94:                 SELECT @current_approver_id = JSON_VALUE(s2.value, '$.approver_ecno')
+  95:                 FROM dbo.vw_workflow_stages AS ws
+  96:                 CROSS APPLY OPENJSON(ws.stages_json) AS s
+  97:                 CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+  98:                 WHERE ws.workflow_types_id = @workflow_types_id
+  99:                   AND s.[key] = '0' AND s2.[key] = '0';
+ 100: 
+ 101:                 IF @current_approver_id IS NULL
+ 102:                     THROW 53006, 'No approver found for the first stage of the ServiceEntry workflow.', 1;
+ 115:             period_from, period_to, usage_reference, confirmed_amount, variance_pct, variance_status,
+ 116:             accept_reject_flag, is_active, workflow_types_id, current_approver_id, status,
+ 117:             created_by, created_date
+ 118:         )
+ 119:         VALUES (
+ 120:             @service_entry_no, @com_sno, @div_sno, @brn_sno, @dept_sno, @po_basic_sno, @vendor_sno,
+ 121:             @period_from, @period_to, @usage_reference, ISNULL(@totalConfirmed, 0), @variance_pct, @variance_status,
+ 122:             'Accepted', 'Y', @workflow_types_id, @current_approver_id, @status,
+ 123:             @created_by, GETDATE()
+ 124:         );
+ 125: 
+ 126:         DECLARE @service_entry_sno INT = SCOPE_IDENTITY();
+##### sp_nt_SaveApprovalRoute (54 lines)
+  32:             SELECT DISTINCT wt.com_sno, wt.div_sno, wt.brn_sno, wt.dept_sno
+  33:             FROM dbo.workflow_types wt JOIN dbo.approval_workflow_master a ON a.workflow_id = wt.workflow_id
+  34:             WHERE a.entity_type = @old AND a.is_active = 'Y' AND wt.is_active = 'Y'
+  35:         ) o
+  36:         WHERE NOT EXISTS (
+  37:             SELECT 1 FROM dbo.workflow_types w2 JOIN dbo.approval_workflow_master b ON b.workflow_id = w2.workflow_id
+  38:             WHERE b.entity_type = @entity AND b.is_active = 'Y' AND w2.is_active = 'Y'
+  39:               AND w2.com_sno = o.com_sno AND w2.div_sno = o.div_sno AND w2.brn_sno = o.brn_sno AND w2.dept_sno = o.dept_sno));
+  40: 
+  41:     IF @missing > 0 AND @force = 0
+##### sp_InitiateApprovalWorkflow (101 lines)
+  18:         DECLARE @com_sno INT, @div_sno INT, @brn_sno INT, @dept_sno INT;
+  19:         DECLARE @workflow_types_id INT;
+  20:         DECLARE @first_stage_id INT;
+  21:         
+  22:         -- Step 1: Get user organizational context
+  23:         SELECT 
+  38:         -- Step 2: Find applicable workflow type based on branch
+  39:         SELECT TOP 1 @workflow_types_id = workflow_types_id
+  40:         FROM approval_workflow_types
+  41:         WHERE workflow_id = @workflow_id
+  42:             AND is_active = 1
+  43:             AND (types_branches LIKE '%' + CAST(@brn_sno AS VARCHAR) + '%' 
+  44:                  OR types_branches IS NULL)
+  45:         ORDER BY workflow_types_id;
+  46:         
+  47:         IF @workflow_types_id IS NULL
+  48:         BEGIN
+  49:             SET @result_message = 'No workflow type found for this branch';
+  50:             ROLLBACK TRANSACTION;
+  51:             RETURN -2;
+  55:         SELECT TOP 1 @first_stage_id = stage_id
+  56:         FROM approval_workflow_stage
+  57:         WHERE workflow_id = @workflow_id
+  58:             AND workflow_types_id = @workflow_types_id
+  59:             AND is_active = 1
+  60:         ORDER BY stage_order ASC;
+  61:         
+  62:         -- Step 4: Create workflow instance
+  79:             @workflow_id = @workflow_id,
+  80:             @workflow_types_id = @workflow_types_id,
+  81:             @entity_id = @entity_id,
+  82:             @entity_type = @entity_type,
+  83:             @com_sno = @com_sno,
+  84:             @div_sno = @div_sno,
+##### sp_nt_ResolveWorkflow (31 lines)
+   4:     @com_sno INT = NULL, @div_sno INT = NULL, @brn_sno INT = NULL, @dept_sno INT = NULL,
+   5:     @workflow_types_id INT OUTPUT,
+   6:     @first_approver VARCHAR(30) OUTPUT
+   7: AS
+   8: BEGIN
+   9:     SET NOCOUNT ON;
+  11: 
+  12:     SELECT TOP 1 @workflow_types_id = wt.workflow_types_id
+  13:     FROM dbo.workflow_types wt
+  14:     JOIN dbo.approval_workflow_master a ON a.workflow_id = wt.workflow_id
+  15:     WHERE a.entity_type = @entity AND a.is_active = 'Y' AND wt.is_active = 'Y'
+  16:       AND (@com_sno IS NULL OR wt.com_sno = @com_sno) AND (@div_sno IS NULL OR wt.div_sno = @div_sno)
+  17:       AND (@brn_sno IS NULL OR wt.brn_sno = @brn_sno) AND (@dept_sno IS NULL OR wt.dept_sno = @dept_sno)
+  18:     ORDER BY wt.workflow_types_id;
+  19: 
+  20:     IF @workflow_types_id IS NULL
+  21:         THROW 52110, N'No approval workflow is configured for this request type and organisation scope.', 1;
+  22: 
+  23:     SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+  24:     FROM dbo.vw_workflow_stages AS ws
+  25:     CROSS APPLY OPENJSON(ws.stages_json) AS s
+  26:     CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+  27:     WHERE ws.workflow_types_id = @workflow_types_id AND s.[key] = '0' AND s2.[key] = '0';
+  28: 
+  29:     IF @first_approver IS NULL
+  30:         THROW 52111, N'The first stage of the approval workflow has no approver.', 1;
+  31: END;
+##### sp_GetPendingApprovalDatas (97 lines)
+  44:         apt.secondary_approver_id,
+  45:         awt.workflow_types_id,
+  46:         awt.workflow_types_name,
+  47:         awt.types_branches,
+  48:         ac.condition_id,
+  49:         ac.condition_name,
+  50:         ac.condition_type,
+  70:     INNER JOIN approval_workflow aw ON ah.workflow_id = aw.workflow_id
+  71:     INNER JOIN approval_workflow_stage aws ON ah.stage_id = aws.stage_id 
+  72:         AND ah.workflow_id = aws.workflow_id
+  73:     LEFT JOIN approver_table apt ON ah.approver_id = apt.approver_id
+  74:         AND apt.com_sno = @user_com_sno
+  75:         AND apt.div_sno = @user_div_sno
+  78:         AND apt.is_active = 'Y'
+  79:     LEFT JOIN approval_workflow_types awt ON aws.workflow_types_id = awt.workflow_types_id
+  80:         AND awt.workflow_id = ah.workflow_id
+  81:     LEFT JOIN approval_condition ac ON ac.stage_id = ah.stage_id 
+  82:         AND ac.workflow_id = ah.workflow_id
+  83:         AND ac.is_active = 'Y'
+##### sp_nt_DirectIssueServicePO (88 lines)
+  48:             po_date, required_date, purpose, terms_conditions, delivery_address,
+  49:             is_active, workflow_types_id, current_approver_id, status, po_df_no, service_type_sno
+  50:         )
+  51:         VALUES (
+  52:             @vendor_sno, @brn_sno, @dept_sno, @com_sno, @div_sno, NULL, NULL, @pr_basic_sno,
+  53:             CAST(GETDATE() AS DATE), ISNULL(@required_date, CAST(GETDATE() AS DATE)), @purpose, dbo.fn_nt_DefaultTermsText(@com_sno, @div_sno, @brn_sno, @dept_s
+##### sp_nt_CreateServiceBillRequest (138 lines)
+  74:         -- ── Resolve the ServiceBillRequest workflow for this org scope ─────
+  75:         DECLARE @workflow_types_id INT, @first_approver VARCHAR(30);
+  76: 
+  77:         SELECT @workflow_types_id = wt.workflow_types_id
+  78:         FROM dbo.workflow_types wt
+  79:         INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+  80:         WHERE wt.com_sno = @com_sno AND wt.div_sno = @div_sno
+  81:           AND wt.brn_sno = @brn_sno AND wt.dept_sno = @dept_sno
+  82:           AND awm.entity_type = 'ServiceBillRequest';
+  83: 
+  84:         IF @workflow_types_id IS NULL
+  85:             THROW 56019, 'No ServiceBillRequest workflow configuration found for this company/division/branch/department.', 1;
+  86: 
+  87:         SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+  88:         FROM dbo.vw_workflow_stages AS ws
+  89:         CROSS APPLY OPENJSON(ws.stages_json) AS s
+  90:         CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+  91:         WHERE ws.workflow_types_id = @workflow_types_id
+  92:           AND s.[key] = '0' AND s2.[key] = '0';
+  93: 
+  94:         IF @first_approver IS NULL
+  95:             THROW 56020, 'No approver found for the first stage of the ServiceBillRequest workflow.', 1;
+ 106:             billing_period_start, billing_period_end, invoice_no, invoice_date, invoice_amount, invoice_doc_url,
+ 107:             remarks, workflow_types_id, current_approver_id, status, is_active, created_by
+ 108:         )
+ 109:         VALUES (
+ 110:             @request_no, @agreement_sno, @com_sno, @div_sno, @brn_sno, @dept_sno, @service_sno, @vendor_sno,
+ 111:             @billing_period_start, @billing_period_end, @invoice_no, @invoice_date, @invoice_amount, @invoice_doc_url,
+ 112:             @remarks, @workflow_types_id, @first_approver, 'P', 'Y', @created_by
+ 113:         );
+ 114: 
+ 115:         DECLARE @bill_request_sno INT = SCOPE_IDENTITY();
+ 116: 
+##### sp_nt_PrApprovalAct (386 lines)
+  57:         SELECT @pr_sno = pr_basic_sno, @pr_status = status, @created_by = created_by,
+  58:                @mode = request_mode, @wf = workflow_types_id, @cur_appr = current_approver_id
+  59:         FROM dbo.pr_basic_info WITH (UPDLOCK)
+  60:         WHERE pr_no = @pr_no AND is_active = 'Y';
+  61: 
+  62:         IF @pr_sno IS NULL THROW 52005, N'Purchase Request not found or inactive.', 1;
+  74:             -- for the PR already in flight. Never invent a one-stage chain: that silently skipped later approvers.
+  75:             SELECT TOP 1 @stages = stage_order_json FROM dbo.workflow_stage
+  76:             WHERE workflow_types_id = @wf AND ISJSON(stage_order_json) = 1
+  77:             ORDER BY CASE WHEN is_active = 'Y' THEN 0 ELSE 1 END, stage_id;
+  78:             IF @stages IS NULL
+  79:                 THROW 52006, N'No approval stages are configured for this requisition. Ask an administrator to check its workflow.', 1;
+  80: 
+  84: 
+  85:             INSERT INTO dbo.approval_instance (entity_type, entity_ref_id, workflow_types_id, stages_json, cycle_no, current_seq, status, current_since)
+  86:             VALUES ('PurchaseRequisition', @pr_sno, @wf, @stages, 1, @cur, 'P', @now);
+  87:             SELECT @inst = SCOPE_IDENTITY(), @cycle = 1, @ret = NULL, @await = 0, @since = @now, @istatus = 'P';
+  88:         END
+  89: 
+ 163: 
+ 164:             INSERT INTO dbo.pr_history_data (pr_basic_sno, pr_edit_data, workflow_types_id, approver_ecno, status, status_by, status_date, commends, is_active, 
+ 165:             VALUES (@pr_sno, NULL, NULL, @primary, 'A', @by, @now, LEFT(@comments, 250), 'Y', @pr_no);
+ 166: 
+ 167:             IF @next IS NULL
+ 168:             BEGIN
+ 188: 
+ 189:             INSERT INTO dbo.pr_history_data (pr_basic_sno, pr_edit_data, workflow_types_id, approver_ecno, status, status_by, status_date, commends, is_active, 
+ 190:             VALUES (@pr_sno, NULL, NULL, @primary, 'R', @by, @now, LEFT(@comments, 250), 'Y', @pr_no);
+ 191: 
+ 192:             UPDATE dbo.approval_instance SET status = 'R', current_seq = NULL, return_to_seq = NULL, updated_at = @now WHERE instance_id = @inst;
+ 193:             UPDATE dbo.pr_basic_info SET status = 'R', current_approver_id = NULL WHERE pr_basic_sno = @pr_sno;
+ 337:             -- restart: fresh cycle from stage 1 on the current workflow definition
+ 338:             DECLARE @fresh NVARCHAR(MAX) = (SELECT TOP 1 stage_order_json FROM dbo.workflow_stage
+ 339:                                             WHERE workflow_types_id = @wf AND is_active = 'Y' AND ISJSON(stage_order_json) = 1 ORDER BY stage_id);
+ 340:             IF @fresh IS NOT NULL SET @stages = @fresh;
+ 341:             SET @next_appr = (SELECT JSON_VALUE(s.value, '$.approver_ecno') FROM OPENJSON(@stages) s WHERE s.[key] = '0');
+ 342:             IF @next_appr IS NULL THROW 52011, N'The first approval stage has no approver configured.', 1;
+ 343:             SET @hist_floor = ISNULL((SELECT MAX(pr_history_sno) FROM dbo.pr_history_data WHERE pr_basic_sno = @pr_sno), 0);
+##### sp_nt_CreateServicePO (214 lines)
+  99: 
+ 100:             DECLARE @workflow_types_id INT, @first_approver VARCHAR(20), @po_status CHAR(1);
+ 101: 
+ 102:             SELECT @workflow_types_id = wt.workflow_types_id
+ 103:             FROM dbo.workflow_types wt
+ 104:             INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+ 105:             WHERE wt.brn_sno = @brn_sno AND wt.dept_sno = @dept_sno AND wt.com_sno = @com_sno AND wt.div_sno = @div_sno
+ 106:               AND awm.entity_type = 'ServicePO';
+ 107: 
+ 108:             IF @workflow_types_id IS NULL
+ 109:             BEGIN
+ 110:                 -- No ServicePO workflow configured for this org scope: issue
+ 111:                 -- directly rather than throwing (spec §7). @first_approver
+ 112:                 -- and @workflow_types_id both stay NULL — same shape
+ 113:                 -- sp_nt_CreateCallOffPO uses for an auto-approved call-off.
+ 114:                 SET @first_approver  = NULL;
+ 115:                 SET @po_status       = 'A';
+ 116:                 SET @is_direct_issue = 1;
+ 120:                 SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+ 121:                 FROM dbo.vw_workflow_stages AS ws
+ 122:                 CROSS APPLY OPENJSON(ws.stages_json) AS s
+ 123:                 CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+ 124:                 WHERE ws.workflow_types_id = @workflow_types_id
+ 125:                   AND s.[key] = '0' AND s2.[key] = '0';
+ 126: 
+ 127:                 IF @first_approver IS NULL
+ 128:                     THROW 52007, 'No approver found for the first stage of the ServicePO workflow.', 1;
+ 143:                 po_date, required_date, purpose, terms_conditions, delivery_address,
+ 144:                 is_active, workflow_types_id, current_approver_id, status, po_df_no,
+ 145:                 po_type, validity_from, validity_to, ceiling_amount, variance_tolerance_pct,
+ 146:                 consumed_amount, service_type_sno, is_retrospective, parent_blanket_po_sno
+ 147:             )
+ 148:             VALUES (
+ 151:                 CAST(GETDATE() AS DATE), @validity_to, @purpose, @terms_conditions, @delivery_address,
+ 152:                 'Y', @workflow_types_id, @first_approver, @po_status, @po_no,
+ 153:                 @po_type, @validity_from, @validity_to, @ceiling_amount, @variance_tolerance_pct,
+ 154:                 0, @service_type_sno, @is_retrospective, @parent_blanket_po_sno
+ 155:             );
+ 156: 
+##### sp_nt_PrApprovalContext (168 lines)
+  10:     DECLARE @pr_sno INT, @pr_status CHAR(1), @created_by VARCHAR(20), @mode VARCHAR(30), @wf INT, @entity_type VARCHAR(50);
+  11:     SELECT @pr_sno = pr_basic_sno, @pr_status = status, @created_by = created_by, @mode = request_mode, @wf = workflow_types_id
+  12:     FROM dbo.pr_basic_info WHERE pr_no = @base AND is_active = 'Y';
+  13:     IF @pr_sno IS NULL THROW 52005, N'Purchase Request not found or inactive.', 1;
+  14: 
+  15:     SELECT @entity_type = m.entity_type
+  16:     FROM dbo.workflow_types wt JOIN dbo.approval_workflow_master m ON m.workflow_id = wt.workflow_id
+  17:     WHERE wt.workflow_types_id = @wf;
+  18: 
+  19:     DECLARE @inst INT, @stages NVARCHAR(MAX), @cycle INT, @cur INT, @ret INT, @await BIT, @since DATETIME, @istatus CHAR(1), @floor INT;
+  20:     SELECT @inst = instance_id, @stages = stages_json, @cycle = cycle_no, @cur = current_seq, @ret = return_to_seq,
+  21:            @await = awaiting_requester, @since = current_since, @istatus = status, @floor = history_floor
+##### sp_nt_GetServiceBillRequests (59 lines)
+  26:         sbr.invoice_no, sbr.invoice_date, sbr.invoice_amount, sbr.invoice_doc_url,
+  27:         sbr.remarks, sbr.workflow_types_id, sbr.current_approver_id, sbr.status,
+  28:         sbr.po_basic_sno, po.po_df_no AS po_no, po.po_pdf_url,
+  29:         sbr.created_by, sbr.created_at,
+  30:         (
+  31:             SELECT h.status_by AS approved_by, h.created_date AS approved_at
+##### sp_nt_GetServiceBillRequestsForApproval (39 lines)
+  14:         sa.ceiling_amount, sa.variance_tolerance_pct,
+  15:         sbr.remarks, sbr.workflow_types_id, sbr.current_approver_id, sbr.status,
+  16:         sbr.created_by, sbr.created_at,
+  17:         (
+  18:             SELECT ws.stage_order_json
+  19:             FROM dbo.workflow_stage ws
+  20:             WHERE ws.workflow_types_id = sbr.workflow_types_id AND ws.is_active = 'Y'
+  21:         ) AS stage_order_json,
+  22:         (
+  23:             SELECT bri.bill_request_item_sno, bri.service_sno, sm2.service_name, bri.qty, bri.uom_sno, um.uom_name,
+  24:                    bri.unit_price, bri.amount, bri.remarks
+##### sp_nt_GetSupplierStatusList (139 lines)
+  81:             SELECT TOP 1 CAST(st.[key] AS INT) + 1
+  82:             FROM dbo.workflow_stage ws
+  83:             CROSS APPLY OPENJSON(ws.stage_order_json) AS st
+  84:             WHERE ws.workflow_types_id = k.workflow_types_id AND ws.is_active = 'Y'
+  85:               AND JSON_VALUE(st.value, '$.approver_ecno') = k.approver_ecno
+  86:         ) END,
+  87:         (
+  88:             SELECT COUNT(*)
+  89:             FROM dbo.workflow_stage ws
+  90:             CROSS APPLY OPENJSON(ws.stage_order_json) AS st
+  91:             WHERE ws.workflow_types_id = k.workflow_types_id AND ws.is_active = 'Y'
+  92:         ),
+  93:         COALESCE(h.status_by, k.modified_by),
+  94:         COALESCE(CAST(h.status_date AS DATETIME), k.modified_date)
+  95:     FROM dbo.kyc_basic_info k
+##### sp_nt_GetSupplierStatusTimeline (83 lines)
+  11: 
+  12:     DECLARE @workflow_types_id INT, @status CHAR(1), @approver VARCHAR(50);
+  13:     SELECT @workflow_types_id = k.workflow_types_id,
+  14:                @status = k.status, @approver = k.approver_ecno
+  15:         FROM dbo.kyc_basic_info k
+  16:         WHERE k.kyc_basic_info_sno = @record_id;
+  17: 
+  22:         SELECT JSON_VALUE(st.value, '$.approver_ecno') AS c
+  23:             FROM dbo.workflow_stage ws CROSS APPLY OPENJSON(ws.stage_order_json) AS st
+  24:             WHERE ws.workflow_types_id = @workflow_types_id AND ws.is_active = 'Y'
+  25:         UNION SELECT @approver
+  26:         UNION SELECT created_by FROM dbo.kyc_basic_info WHERE @source = 'KYC' AND kyc_basic_info_sno = @record_id
+  27:         UNION SELECT modified_by FROM dbo.kyc_basic_info WHERE @source = 'KYC' AND kyc_basic_info_sno = @record_id
+  28:         UNION SELECT status_by FROM dbo.kyc_history WHERE @source = 'KYC' AND kyc_basic_info_sno = @record_id
+  64:         p.name                                 AS approver_name
+  65:     FROM dbo.workflow_stage ws
+  66:     CROSS APPLY OPENJSON(ws.stage_order_json) AS st
+  67:     LEFT JOIN #people p ON p.code = JSON_VALUE(st.value, '$.approver_ecno')
+  68:     WHERE ws.workflow_types_id = @workflow_types_id AND ws.is_active = 'Y'
+  69:     ORDER BY stage_no;
+  70: 
+  71:     -- RS3: what actually happened, oldest first (regular KYC history carries no comments).
+  72:         SELECT
+##### trg_workflow_stage_reassign_approvers (127 lines)
+   1: CREATE     TRIGGER dbo.trg_workflow_stage_reassign_approvers
+   2: ON dbo.workflow_stage
+   3: AFTER UPDATE
+   4: AS
+   5: BEGIN
+   6:     SET NOCOUNT ON;
+  13:         INSERT INTO #old
+  14:         SELECT d.workflow_types_id, TRY_CAST(j.[key] AS INT), NULLIF(LTRIM(RTRIM(JSON_VALUE(j.value, '$.approver_ecno'))), '')
+  15:         FROM deleted d CROSS APPLY OPENJSON(d.stage_order_json) j
+  16:         WHERE ISJSON(d.stage_order_json) = 1 AND d.is_active = 'Y';
+  17: 
+  18:         INSERT INTO #new
+  19:         SELECT i.workflow_types_id, TRY_CAST(j.[key] AS INT), NULLIF(LTRIM(RTRIM(JSON_VALUE(j.value, '$.approver_ecno'))), '')
+  20:         FROM inserted i CROSS APPLY OPENJSON(i.stage_order_json) j
+  21:         WHERE ISJSON(i.stage_order_json) = 1 AND i.is_active = 'Y';
+  22: 
+  23:         -- approvers that left / joined (by workflow), numbered in stage order
+  65:         OUTPUT 'PurchaseRequisition', inserted.pr_basic_sno, N'PR ' + inserted.pr_no, m.wf, m.old_ecno, m.new_ecno INTO #moved
+  66:         FROM dbo.pr_basic_info t JOIN #map m ON m.wf = t.workflow_types_id AND m.old_ecno = t.current_approver_id
+  67:         WHERE t.status = 'P';
+  68: 
+  69:         UPDATE t SET current_approver_id = m.new_ecno
+  70:         OUTPUT 'PurchaseOrder', inserted.po_basic_sno, N'PO ' + ISNULL(inserted.po_df_no, CAST(inserted.po_basic_sno AS VARCHAR(20))), m.wf, m.old_ecno, m.new_e
+  71:         FROM dbo.po_request_info t JOIN #map m ON m.wf = t.workflow_types_id AND m.old_ecno = t.current_approver_id
+  72:         WHERE t.status = 'P';
+  73: 
+  74:         UPDATE t SET approver_ecno = m.new_ecno
+  75:         OUTPUT 'Quotation', inserted.sq_basic_sno, N'Quotation ' + ISNULL(inserted.quotation_ref_no, inserted.pr_no), m.wf, m.old_ecno, m.new_ecno INTO #moved
+  76:         FROM dbo.supplier_quotation_info t JOIN #map m ON m.wf = t.workflow_types_id AND m.old_ecno = t.approver_ecno
+  77:         WHERE t.status = 'P';
+  78: 
+  79:         -- a quotation forwarded to / from the replaced approver keeps pointing at them otherwise
+  80:         UPDATE t SET transferred_to = m.new_ecno
+  81:         FROM dbo.supplier_quotation_info t JOIN #map m ON m.wf = t.workflow_types_id AND m.old_ecno = t.transferred_to
+  82:         WHERE t.status = 'P' AND t.is_active = 1;
+  83:         UPDATE t SET transferred_from = m.new_ecno
+  84:         FROM dbo.supplier_quotation_info t JOIN #map m ON m.wf = t.workflow_types_id AND m.old_ecno = t.transferred_from
+  85:         WHERE t.status = 'P' AND t.is_active = 1;
+  86: 
+  87:         UPDATE t SET approver_ecno = m.new_ecno
+  88:         OUTPUT 'KYC', inserted.kyc_basic_info_sno, N'KYC ' + ISNULL(inserted.company_name, ''), m.wf, m.old_ecno, m.new_ecno INTO #moved
+  89:         FROM dbo.kyc_basic_info t JOIN #map m ON m.wf = t.workflow_types_id AND m.old_ecno = t.approver_ecno
+  90:         WHERE t.status = 'P';
+  91: 
+  92:         UPDATE t SET current_approver_id = m.new_ecno
+  93:         OUTPUT 'ServiceAgreement', inserted.agreement_sno, N'Service Agreement ' + inserted.agreement_no, m.wf, m.old_ecno, m.new_ecno INTO #moved
+  94:         FROM dbo.service_agreement t JOIN #map m ON m.wf = t.workflow_types_id AND m.old_ecno = t.current_approver_id
+  95:         WHERE t.status = 'P';
+  96: 
+  97:         UPDATE c SET current_approver_id = m.new_ecno
+  98:         OUTPUT 'ServicePO', inserted.cycle_sno, N'Service PO ' + inserted.pr_no, m.wf, m.old_ecno, m.new_ecno INTO #moved
+  99:         FROM dbo.service_po_cycle c JOIN #map m ON m.wf = c.workflow_types_id AND m.old_ecno = c.current_approver_id
+ 100:         WHERE c.status = 'PENDING_APPROVAL';
+ 101: 
+ 102:         UPDATE t SET current_approver_id = m.new_ecno
+ 103:         OUTPUT 'BankPaymentVoucher', inserted.voucher_sno, N'Loan Voucher ' + ISNULL(inserted.voucher_no, ''), m.wf, m.old_ecno, m.new_ecno INTO #moved
+ 104:         FROM dbo.bank_payment_voucher t JOIN #map m ON m.wf = t.workflow_types_id AND m.old_ecno = t.current_approver_id
+ 105:         WHERE t.status = 'PENDING';
+ 106: 
+ 107:         IF NOT EXISTS (SELECT 1 FROM #moved) RETURN;
+ 108: 
+ 109:         INSERT INTO dbo.approver_reassignment_log (entity_type, entity_id, label, workflow_types_id, old_ecno, new_ecno, recipient_ecno, recipient_role)
+ 110:         SELECT entity_type, entity_id, label, wf, old_ecno, new_ecno, old_ecno, 'OLD' FROM #moved
+ 111:         UNION ALL
+ 112:         SELECT entity_type, entity_id, label, wf, old_ecno, new_ecno, new_ecno, 'NEW' FROM #moved;
+ 113: 
+ 124:         IF XACT_STATE() = -1 THROW;
+ 125:         PRINT N'trg_workflow_stage_reassign_approvers: ' + @msg;
+ 126:     END CATCH
+ 127: END;
+##### trg_pr_basic_info_approval_instance (21 lines)
+  10: 
+  11:     INSERT INTO dbo.approval_instance (entity_type, entity_ref_id, workflow_types_id, stages_json, cycle_no, current_seq, status, current_since)
+  12:     SELECT 'PurchaseRequisition', i.pr_basic_sno, i.workflow_types_id, ws.stage_order_json, 1, 0, 'P', GETDATE()
+  13:     FROM inserted i
+  14:     CROSS APPLY (SELECT TOP 1 w.stage_order_json
+  15:                  FROM dbo.workflow_stage w
+  16:                  WHERE w.workflow_types_id = i.workflow_types_id AND ISJSON(w.stage_order_json) = 1
+  17:                  ORDER BY CASE WHEN w.is_active = 'Y' THEN 0 ELSE 1 END, w.stage_id) ws
+  18:     WHERE i.status = 'P' AND i.workflow_types_id IS NOT NULL
+  19:       AND NOT EXISTS (SELECT 1 FROM dbo.approval_instance a
+  20:                       WHERE a.entity_type = 'PurchaseRequisition' AND a.entity_ref_id = i.pr_basic_sno);
+  21: END
+##### sp_approve_kyc_datas (300 lines)
+  23:                 @approval_stages      NVARCHAR(MAX),  
+  24:                 @workflow_types_id    INT;  
+  25:   
+  26:   
+  27:                 select @jsonInput   
+  28:         -- ─── Validate: action ────────────────────────────────────────  
+  48:   
+  49:         -- ─── Get workflow_types_id from pending KYC record ──────────  
+  50:         SELECT @workflow_types_id = workflow_types_id  
+  51:         FROM kyc_basic_info  
+  52:         WHERE kyc_basic_info_sno = @kyc_basic_info_sno  
+  53:           AND status = 'P';  
+  54:   
+  55:         IF @workflow_types_id IS NULL  
+  56:         BEGIN  
+  57:             RAISERROR('KYC record not found or is not in Pending (P) status.', 16, 1);  
+  58:             RETURN;  
+  59:         END  
+  62:         SELECT @approval_stages = JSON_VALUE(s.value, '$.stage_order_json')  
+  63:         FROM vw_workflow_stages AS ws  
+  64:         CROSS APPLY OPENJSON(ws.stages_json) AS s  
+  65:         WHERE ws.workflow_types_id = @workflow_types_id  
+  66:           AND s.[key] = '0';  
+  67:   
+  68:         IF @approval_stages IS NULL  
+  69:         BEGIN  
+ 245:                     kbi.instance_id,  
+ 246:                     kbi.workflow_types_id  
+ 247:                 FROM kyc_basic_info kbi  
+ 248:                 WHERE kbi.kyc_basic_info_sno = @kyc_basic_info_sno  
+ 249:                 FOR JSON PATH, WITHOUT_ARRAY_WRAPPER  
+ 250:             );  
+##### sp_InsertKYCData (208 lines)
+  35:             @date_of_reg        date,
+  36:             @workflow_types_id  INT,
+  37:             @pay_via_portal     CHAR(1),
+  38:             @portal_name        NVARCHAR(150),
+  39:             @portal_url         NVARCHAR(500),
+  40:             @pay_instructions   NVARCHAR(1000);
+  71: 
+  72:         SET @workflow_types_id = 16; -- Non_Trade KYC workflow (Dev uses 5); environment-specific, do not sync from Dev
+  73:       SELECT @approver_ecno = JSON_VALUE(s2.value, '$.approver_ecno')
+  74:         FROM vw_workflow_stages AS ws
+  75:         CROSS APPLY OPENJSON(ws.stages_json) AS s
+  76:         CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+  77:         WHERE ws.workflow_types_id = @workflow_types_id
+  78:           AND s.[key]  = '0'
+  79:           AND s2.[key] = '0';
+  80: 
+  81:         --IF @approver_ecno IS NULL
+  93:             business_type, is_gst_avail, gst_no, is_msme_avail,
+  94:             msme_no, pan_no, created_by, created_date, is_active, status ,workflow_types_id ,approver_ecno ,supplier_cat_code,
+  95:             legal_name,trade_name,txp_type, gst_status,gst_blk_status ,date_of_reg,
+  96:             pay_via_portal, payment_portal_name, payment_portal_url, payment_instructions
+  97:         )
+  98:         VALUES (
+ 100:             @business_type, @is_gst_avail, @gst_no, @is_msme_avail,
+ 101:             @msme_no, @pan_no, @created_by, GETDATE(), 'Y', 'P' ,@workflow_types_id ,@approver_ecno ,@supplier_cat_code
+ 102:             ,@legal_name,@trade_name,@txp_type,@gst_status,@gst_blk_status,@date_of_reg,
+ 103:             @pay_via_portal, @portal_name, @portal_url, @pay_instructions
+ 104:         );
+ 105: 
+##### sp_nt_GetServiceAgreementsForApproval (52 lines)
+  38:                SELECT ws.stage_order_json
+  39:                FROM dbo.workflow_stage ws
+  40:                WHERE ws.workflow_types_id = sa.workflow_types_id AND ws.is_active = 'Y'
+  41:            ) AS stage_order_json
+  42:     FROM dbo.service_agreement sa
+  43:     JOIN dbo.service_master sm ON sm.service_sno = sa.service_sno
+  44:     JOIN dbo.service_type_master st ON st.service_type_sno = sm.service_type_sno
+##### sp_nt_IssueRecurringServicePOCycle (198 lines)
+  99:             pr_no, com_sno, div_sno, brn_sno, dept_sno, reg_date, required_date, priority_sno, purpose,
+ 100:             is_active, created_by, created_date, workflow_types_id, current_approver_id, status
+ 101:         )
+ 102:         VALUES (
+ 103:             @pr_no, @com_sno, @div_sno, @brn_sno, @dept_sno, @billing_period_start, @billing_period_start, @default_priority_sno,
+ 104:             N'Auto-generated recurring PR — Service Agreement ' + @agreement_no,
+ 121:         --    rate resolved later by sp_nt_SubmitServicePoEntry. ───────────
+ 122:         DECLARE @cycle_status VARCHAR(20), @cycle_workflow_types_id INT = NULL, @cycle_approver VARCHAR(30) = NULL,
+ 123:                 @cycle_rate DECIMAL(18,2) = NULL, @cycle_net_cost DECIMAL(18,2) = NULL;
+ 124: 
+ 125:         IF @service_type_code = 'FIXED_RECURRING'
+ 126:         BEGIN
+ 131:                 @com_sno = @com_sno, @div_sno = @div_sno, @brn_sno = @brn_sno, @dept_sno = @dept_sno,
+ 132:                 @workflow_types_id = @cycle_workflow_types_id OUTPUT, @first_approver = @cycle_approver OUTPUT,
+ 133:                 @service_type_code = @service_type_code;
+ 134:         END
+ 135:         ELSE
+ 136:             SET @cycle_status = 'PENDING_ENTRY';
+ 140:             pr_basic_sno, pr_no, qty, rate_amount, net_cost, status,
+ 141:             workflow_types_id, current_approver_id
+ 142:         )
+ 143:         VALUES (
+ 144:             @agreement_sno, @com_sno, @div_sno, @brn_sno, @dept_sno, @billing_period_start,
+ 145:             @pr_basic_sno, @pr_no, @qty, @cycle_rate, @cycle_net_cost, @cycle_status,
+ 146:             @cycle_workflow_types_id, @cycle_approver
+ 147:         );
+ 148:         DECLARE @cycle_sno INT = SCOPE_IDENTITY();
+ 149: 
+ 150:         -- sql/88: a Fixed cycle already knows its rate, so split it across the
+##### sp_SaveWorkflowMaster (400 lines)
+  21:     -- Temp tables for batch inserts
+  22:     DECLARE @temp_workflow_types TABLE (
+  23:         temp_id INT IDENTITY(0,1),
+  24:         workflow_types_name NVARCHAR(200),
+  25:         types_branches NVARCHAR(500),
+  26:         is_active BIT,
+  27:         actual_workflow_types_id INT
+  28:     );
+  29:     
+  30:     DECLARE @temp_auth_branches TABLE (
+  31:         workflow_types_temp_id INT,
+  32:         com_sno INT,
+  33:         div_sno INT,
+  34:         brn_sno INT,
+  35:         dept_sno INT
+ 122:         -- ============================================
+ 123:         INSERT INTO @temp_workflow_types (workflow_types_name, types_branches, is_active)
+ 124:         SELECT 
+ 125:             JSON_VALUE(value, '$.workflow_types_name'),
+ 126:             JSON_VALUE(value, '$.types_branches'),
+ 127:             CAST(JSON_VALUE(value, '$.is_active') AS BIT)
+ 128:         FROM OPENJSON(@workflow_json, '$.workflowTypes');
+ 129:         
+ 135:         SET @wt_cursor = CURSOR FOR 
+ 136:         SELECT temp_id, workflow_types_name, types_branches, is_active 
+ 137:         FROM @temp_workflow_types;
+ 138:         
+ 139:         OPEN @wt_cursor;
+ 140:         FETCH NEXT FROM @wt_cursor INTO @wt_temp_id, @wt_name, @wt_branches, @wt_active;
+ 141:         
+ 143:         BEGIN
+ 144:             INSERT INTO approval_workflow_types (
+ 145:                 workflow_types_name,
+ 146:                 workflow_id,
+ 147:                 workflow_name,
+ 148:                 types_branches,
+ 149:                 is_active,
+ 164:             
+ 165:             UPDATE @temp_workflow_types 
+ 166:             SET actual_workflow_types_id = @wt_actual_id 
+ 167:             WHERE temp_id = @wt_temp_id;
+ 168:             
+ 169:             FETCH NEXT FROM @wt_cursor INTO @wt_temp_id, @wt_name, @wt_branches, @wt_active;
+ 170:         END
+ 177:         -- ============================================
+ 178:         INSERT INTO @temp_auth_branches (workflow_types_temp_id, com_sno, div_sno, brn_sno, dept_sno)
+ 179:         SELECT 
+ 180:             CAST(JSON_VALUE(value, '$.workflow_types_id') AS INT),
+ 181:             CAST(JSON_VALUE(value, '$.com_sno') AS INT),
+ 182:             CAST(JSON_VALUE(value, '$.div_sno') AS INT),
+ 183:             CAST(JSON_VALUE(value, '$.brn_sno') AS INT),
+ 184:             CAST(JSON_VALUE(value, '$.dept_sno') AS INT)
+ 186:         
+ 187:         -- Insert auth branches with actual workflow_types_id
+ 188:         INSERT INTO workflow_auth_branches (
+ 189:             workflow_id,
+ 190:             workflow_types_id,
+ 191:             com_sno,
+ 192:             div_sno,
+ 193:             brn_sno,
+ 194:             dept_sno
+ 197:             @workflow_id,
+ 198:             wt.actual_workflow_types_id,
+ 199:             ab.com_sno,
+ 200:             ab.div_sno,
+ 201:             ab.brn_sno,
+ 202:             ab.dept_sno
+ 203:         FROM @temp_auth_branches ab
+ 204:         INNER JOIN @temp_workflow_types wt ON ab.workflow_types_temp_id = wt.temp_id
+ 205:         WHERE wt.actual_workflow_types_id IS NOT NULL;
+ 206:         
+ 207:         -- ============================================
+ 208:         -- STEP 4: Parse and Insert Stages
+ 209:         -- ============================================
+ 243:         BEGIN
+ 244:             INSERT INTO approval_workflow_stage (
+ 245:                 workflow_id,
+ 246:                 stage_order,
+ 247:                 stage_name,
+ 248:                 stage_type,
+##### sp_nt_CreatePOFromQuotation (118 lines)
+  48:             priority_sno, purpose, terms_conditions, delivery_address,
+  49:             is_active, workflow_types_id, current_approver_id,
+  50:             status, po_df_no, split_pr_no
+  51:         )
+  52:         VALUES (
+  53:             @vendor_sno, @brn_sno, @dept_sno, @com_sno, @div_sno,
+##### vw_PR_Basic_Info (142 lines)
+  46: 
+  47:     pbf.workflow_types_id,
+  48:     pbf.current_approver_id,
+  49:     pbf.status,
+  50: 
+  51:     -- PR Item Details as JSON array (only items of THIS group)
+ 103:             ws.stage_order_json
+ 104:         FROM workflow_stage ws
+ 105:         WHERE ws.workflow_types_id = pbf.workflow_types_id
+ 106:           AND ws.is_active = 'Y'
+ 107:     ) AS stage_order_json,
+ 108: 
+ 109:     (
+ 121: FROM pr_basic_info pbf
+ 122: INNER JOIN workflow_types wt
+ 123:     ON pbf.workflow_types_id = wt.workflow_types_id
+ 124: INNER JOIN vw_ActiveDeptRecords vadr
+ 125:     ON pbf.brn_sno   = vadr.brn_sno
+ 126:    AND pbf.dept_sno  = vadr.dept_sno
+ 127: INNER JOIN vw_verified_employees vve
+##### vw_workflow_stages (18 lines)
+   1:  CREATE   view vw_workflow_stages
+   2:  AS
+   3: SELECT
+   4:     wt.workflow_types_id,
+   5:     wt.workflow_types_name,
+   6:     wt.workflow_id,
+   7:     wt.workflow_name,
+   8:     wt.com_sno,
+   9:     wt.div_sno,
+  13:         SELECT stage_order_json
+  14:         FROM workflow_stage ws
+  15:         WHERE ws.workflow_types_id = wt.workflow_types_id
+  16:         FOR JSON PATH
+  17:     ) AS stages_json
+  18: FROM workflow_types AS wt;
+##### sp_approve_pr_datas (244 lines)
+ 115:             INSERT INTO pr_history_data (
+ 116:                 pr_basic_sno, pr_edit_data, workflow_types_id,
+ 117:                 approver_ecno, status, status_by,
+ 118:                 status_date, commends, is_active, pr_no
+ 119:             )
+ 120:             SELECT
+ 182:         INSERT INTO pr_history_data (
+ 183:             pr_basic_sno, pr_edit_data, workflow_types_id,
+ 184:             approver_ecno, status, status_by,
+ 185:             status_date, commends, is_active, pr_no
+ 186:         )
+ 187:         SELECT
+##### sp_InserPurchaseRecords (228 lines)
+  34:             @workflow_id         INT,  
+  35:             @workflow_types_id   INT,  
+  36:             @first_approver      VARCHAR(20),  
+  37:             @items_inserted      INT;  
+  38:   
+  39:         -- ── Generate PO Number ─────────────────────────────────────────────  
+ 115:             @workflow_id       = wt.workflow_id,  
+ 116:             @workflow_types_id = wt.workflow_types_id  
+ 117:         FROM workflow_types wt  
+ 118:         INNER JOIN approval_workflow_master awm  
+ 119:             ON awm.workflow_id = wt.workflow_id  
+ 120:         WHERE wt.brn_sno      = @brn_sno  
+ 121:           AND wt.dept_sno     = @dept_sno  
+ 125:   
+ 126:         --IF @workflow_types_id IS NULL  
+ 127:         --    THROW 50006, 'No workflow configuration found for this branch and department.', 1;  
+ 128:         -- Resolve first approver  
+ 129:         SELECT @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')  
+ 130:         FROM vw_workflow_stages AS ws  
+ 131:         CROSS APPLY OPENJSON(ws.stages_json) AS s  
+ 132:         CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2  
+ 133:         WHERE ws.workflow_types_id = @workflow_types_id  
+ 134:           AND s.[key]  = '0'  
+ 135:           AND s2.[key] = '0';  
+ 136:   
+ 137:         --IF @first_approver IS NULL  
+ 147:             [purpose],             
+ 148:             [is_active],          [workflow_types_id],    [current_approver_id],  
+ 149:             [status],             [split_pr_no]            
+ 150:               
+ 151:         )  
+ 152:         VALUES  
+ 158:             @purpose,              
+ 159:             'Y',                  @workflow_types_id,     @first_approver,  
+ 160:             'P',                  @split_pr_no             
+ 161:             
+ 162:         );  
+ 163:   
+##### sp_InsertPurchaseRecords (169 lines)
+  22:             @po_basic_sno      INT,
+  23:             @workflow_types_id INT,
+  24:             @first_approver    VARCHAR(20),
+  25:             @items_inserted    INT;
+  26: 
+  27:         -- ── Parse JSON ─────────────────────────────────────────────────────
+  66:         SELECT TOP 1
+  67:             @workflow_types_id = wt.workflow_types_id
+  68:         FROM workflow_types wt
+  69:         INNER JOIN approval_workflow_master awm
+  70:             ON awm.workflow_id = wt.workflow_id
+  71:         WHERE wt.brn_sno      = @brn_sno
+  72:           AND wt.dept_sno     = @dept_sno
+  75:           AND awm.entity_type = 'PurchaseOrder'
+  76:         ORDER BY wt.workflow_types_id;
+  77: 
+  78:         --IF @workflow_types_id IS NULL
+  79:         --    THROW 50009, 'No approval workflow found for this branch/department.', 1;
+  80: 
+  81:         SELECT TOP 1
+  82:             @first_approver = JSON_VALUE(s2.value, '$.approver_ecno')
+  83:         FROM vw_workflow_stages AS ws
+  84:         CROSS APPLY OPENJSON(ws.stages_json) AS s
+  85:         CROSS APPLY OPENJSON(JSON_VALUE(s.value, '$.stage_order_json')) AS s2
+  86:         WHERE ws.workflow_types_id = @workflow_types_id
+  87:           AND s.[key]  = '0'
+  88:           AND s2.[key] = '0';
+  89: 
+  90:         --IF @first_approver IS NULL
+  98:             [required_date],        [priority_sno],         [purpose],
+  99:             [is_active],            [workflow_types_id],    [current_approver_id],
+ 100:             [status],               [split_pr_no]       
+ 101:         )
+ 102:         VALUES
+ 103:         (
+ 106:             @required_date,         @priority_sno,          @purpose,
+ 107:             'Y',                    @workflow_types_id,     @first_approver,
+ 108:             'P',                    @split_pr_no         
+ 109:         );
+ 110: 
+ 111:         SET @po_basic_sno = SCOPE_IDENTITY();
+##### sp_nt_LogPOSentToSupplier (67 lines)
+  14: -- Discovery note: pr_history_data (pr_basic_sno, pr_edit_data, is_active,
+  15: -- workflow_types_id, approver_ecno, status, status_by, status_date, commends,
+  16: -- pr_no) already exists live and is already populated by sp_approve_pr_datas
+  17: -- on every approve/reject — it was simply never checked into this repo's sql/
+  18: -- folder before now (same situation usp_InsertPurchaseRequest was in until
+  19: -- 06_usp_InsertPurchaseRequest_v2.sql). No new PR audit table is needed —
+##### sp_nt_GetPRTrackingTimeline (272 lines)
+  15: --      supplier quotation and THAT goes through an approval chain
+  16: --      (supplier_quotation_info.workflow_types_id -> workflow_stage), and on
+  17: --      the last approval sp_nt_ApproveSupplierQuotation creates the PO
+  18: --      (history row PO_CREATED, "PO STPL… auto-generated"). The timeline showed
+  19: --      only raw quotation history rows — no chain, no "pending with", no names.
+  20: --      -> new RS14 (stage chain per quotation workflow) + names on RS2/RS3.
+  56: 
+  57:     DECLARE @pr_basic_sno INT, @workflow_types_id INT;
+  58:     SELECT @pr_basic_sno = pr_basic_sno, @workflow_types_id = workflow_types_id
+  59:     FROM dbo.pr_basic_info
+  60:     WHERE pr_no = @base_pr_no AND is_active = 'Y';
+  61: 
+  62:     IF @pr_basic_sno IS NULL
+  73:     -- one a quotation of this PR was routed through.
+  74:     DECLARE @sqWorkflows TABLE (workflow_types_id INT PRIMARY KEY);
+  75:     INSERT INTO @sqWorkflows (workflow_types_id)
+  76:     SELECT DISTINCT workflow_types_id
+  77:     FROM dbo.supplier_quotation_info
+  78:     WHERE pr_basic_sno = @pr_basic_sno AND workflow_types_id IS NOT NULL;
+  79: 
+  80:     -- ── #people: every person code that appears below -> a display name ───────
+  81:     -- COLLATE DATABASE_DEFAULT: temp tables take tempdb's collation, which can differ from this
+  82:     -- database's and would raise a collation-conflict error when joined to its columns.
+  90:         UNION SELECT JSON_VALUE(s.value, '$.approver_ecno')
+  91:               FROM dbo.workflow_stage ws
+  92:               CROSS APPLY OPENJSON(ws.stage_order_json) AS s
+  93:               WHERE ws.is_active = 'Y'
+  94:                 AND (ws.workflow_types_id = @workflow_types_id
+  95:                      OR ws.workflow_types_id IN (SELECT workflow_types_id FROM @sqWorkflows))
+  96:         UNION SELECT created_by          FROM dbo.supplier_quotation_info WHERE pr_basic_sno = @pr_basic_sno
+  97:         UNION SELECT approver_ecno       FROM dbo.supplier_quotation_info WHERE pr_basic_sno = @pr_basic_sno
+  98:         UNION SELECT transferred_from    FROM dbo.supplier_quotation_info WHERE pr_basic_sno = @pr_basic_sno
+  99:         UNION SELECT transferred_to      FROM dbo.supplier_quotation_info WHERE pr_basic_sno = @pr_basic_sno
+ 222:         JSON_VALUE(s.value, '$.required_approvals')  AS required_approvals
+ 223:     FROM dbo.workflow_stage ws
+ 224:     CROSS APPLY OPENJSON(ws.stage_order_json) AS s
+ 225:     LEFT JOIN #people p ON p.code = JSON_VALUE(s.value, '$.approver_ecno')
+ 226:     WHERE ws.workflow_types_id = @workflow_types_id
+ 227:       AND ws.is_active = 'Y'
+ 228:     ORDER BY stage_no;
+ 229: 
+ 230:     -- RS13: the PR's full ordered approval history — who, what, when, and the comment
+ 246:     SELECT
+ 247:         ws.workflow_types_id,
+ 248:         CAST(s.[key] AS INT) + 1                    AS stage_no,
+ 249:         JSON_VALUE(s.value, '$.stage')               AS stage_name,
+ 250:         JSON_VALUE(s.value, '$.approver_ecno')       AS approver_ecno,
+ 251:         p.name                                       AS approver_name,
+ 252:         JSON_VALUE(s.value, '$.can_forward')         AS can_forward
+ 253:     FROM dbo.workflow_stage ws
+ 254:     CROSS APPLY OPENJSON(ws.stage_order_json) AS s
+ 255:     LEFT JOIN #people p ON p.code = JSON_VALUE(s.value, '$.approver_ecno')
+ 256:     WHERE ws.workflow_types_id IN (SELECT workflow_types_id FROM @sqWorkflows)
+ 257:       AND ws.is_active = 'Y'
+ 258:     ORDER BY ws.workflow_types_id, stage_no;
+ 259: 
+ 260:     -- RS15 (new): the PR row itself — status and who it is with RIGHT NOW
+ 261:     SELECT
+ 262:         pb.pr_basic_sno, pb.pr_no, pb.status, pb.workflow_types_id,
+ 263:         pb.current_approver_id, pa.name AS current_approver_name,
+ 264:         pb.created_by, pc.name AS created_by_name, pb.created_date
+ 265:     FROM dbo.pr_basic_info pb
+ 266:     LEFT JOIN #people pa ON pa.code = pb.current_approver_id
+##### sp_split_pr (161 lines)
+  17:         DECLARE @modified_by       VARCHAR(50);    
+  18:         DECLARE @workflow_types_id INT;    
+  19:         DECLARE @approver_ecno     VARCHAR(50);    
+  20:         DECLARE @status            VARCHAR(50);    
+  21:         DECLARE @comments          NVARCHAR(MAX);    
+  22:         DECLARE @next_group        INT;    
+  27:             @modified_by       =      JSON_VALUE(@jsonInput, '$.created_by'),    
+  28:             @workflow_types_id = CAST(JSON_VALUE(@jsonInput, '$.workflow_types_id') AS INT),    
+  29:             @approver_ecno     =      JSON_VALUE(@jsonInput, '$.created_by'),    
+  30:             @status            =      'A',    
+  31:             @comments          =      ISNULL(JSON_VALUE(@jsonInput, '$.comments'),'PR SPLITED');    
+  32:     
+ 117:             is_active,    
+ 118:             workflow_types_id,    
+ 119:             approver_ecno,    
+ 120:             status,    
+ 121:             status_by,    
+ 122:             status_date,    
+ 131:             'Y',    
+ 132:             @workflow_types_id,    
+ 133:             @approver_ecno,    
+ 134:             ISNULL(@status, 'P'),    
+ 135:             @modified_by,    
+ 136:             GETDATE(),    
+##### fn_scopeless_workflow_types (11 lines)
+   1: -- lowest-id active workflow type of an entity (for features with no org scope, e.g. KYC)
+   2: CREATE     FUNCTION dbo.fn_scopeless_workflow_types (@entity VARCHAR(50))
+   3: RETURNS INT
+   4: AS
+   5: BEGIN
+   6:     RETURN (SELECT TOP 1 wt.workflow_types_id
+   7:             FROM dbo.workflow_types wt
+   8:             JOIN dbo.approval_workflow_master a ON a.workflow_id = wt.workflow_id
+   9:             WHERE a.entity_type = @entity AND a.is_active = 'Y' AND wt.is_active = 'Y'
+  10:             ORDER BY wt.workflow_types_id);
+  11: END;
+##### sp_Save_PO_Request (264 lines)
+  26:             delivery_address     NVARCHAR(MAX),    
+  27:             workflow_types_id    INT,    
+  28:             current_approver_id  INT,    
+  29:             status               CHAR(1),    
+  30:             po_df_no             NVARCHAR(100),    
+  31:             created_by           INT    
+  38:             purpose, terms_conditions, delivery_address,    
+  39:             workflow_types_id, current_approver_id,    
+  40:             status, po_df_no, created_by    
+  41:         )    
+  42:         SELECT    
+  43:             CAST(JSON_VALUE(@jsonInput, '$.pr_basic_sno')          AS INT),    
+  55:             JSON_VALUE(@jsonInput, '$.delivery_address'),    
+  56:             CAST(JSON_VALUE(@jsonInput, '$.workflow_types_id')     AS INT),    
+  57:             CAST(JSON_VALUE(@jsonInput, '$.current_approver_id')   AS INT),    
+  58:             ISNULL(LEFT(JSON_VALUE(@jsonInput, '$.status'), 1), 'P'),    
+  59:             JSON_VALUE(@jsonInput, '$.po_df_no'),    
+  60:             CAST(JSON_VALUE(@jsonInput, '$.created_by')            AS INT);    
+ 164:                 priority_sno, purpose, terms_conditions, delivery_address,    
+ 165:                 is_active, workflow_types_id, current_approver_id,    
+ 166:                 status, po_df_no,    
+ 167:                 split_pr_no                    -- ✅ set per split group    
+ 168:             )    
+ 169:             SELECT    
+ 173:                 priority_sno, purpose, terms_conditions, delivery_address,    
+ 174:                 1, workflow_types_id, current_approver_id,    
+ 175:                 status, po_df_no,    
+ 176:       @cur_split_pr_no               -- ✅ e.g. "PR-2026-001/1"    
+ 177:             FROM #tmp_po_header;    
+ 178:     
+##### sp_nt_ApproveBankPaymentVoucher (81 lines)
+  16: 
+  17:         DECLARE @status VARCHAR(20), @current_approver VARCHAR(30), @stage_seq INT, @workflow_types_id INT,
+  18:                 @agreement_sno INT, @voucher_no VARCHAR(30), @period_to DATE, @repay DECIMAL(18,2);
+  19:         SELECT @status = status, @current_approver = current_approver_id, @stage_seq = current_stage_seq,
+  20:                @workflow_types_id = workflow_types_id, @agreement_sno = agreement_sno, @voucher_no = voucher_no,
+  21:                @period_to = period_to, @repay = principal_repayment
+  22:         FROM dbo.bank_payment_voucher WITH (UPDLOCK, HOLDLOCK)
+  23:         WHERE voucher_sno = @voucher_sno;
+  24: 
+  47:         SELECT TOP 1 @next_approver = JSON_VALUE(j.value, '$.approver_ecno')
+  48:         FROM dbo.workflow_stage ws
+  49:         CROSS APPLY OPENJSON(ws.stage_order_json) j
+  50:         WHERE ws.workflow_types_id = @workflow_types_id AND ws.is_active = 'Y' AND TRY_CAST(j.[key] AS INT) = @stage_seq + 1;
+  51: 
+  52:         IF @next_approver IS NOT NULL
+  53:         BEGIN
+  54:             UPDATE dbo.bank_payment_voucher SET current_approver_id = @next_approver, current_stage_seq = @stage_seq + 1 WHERE voucher_sno = @voucher_sno;
+##### sp_nt_ApproveServicePoCycle (358 lines)
+  89:                 SELECT TOP 1 ws.stage_order_json
+  90:                 FROM dbo.workflow_stage ws
+  91:                 JOIN dbo.service_po_cycle t ON t.workflow_types_id = ws.workflow_types_id
+  92:                 WHERE t.cycle_sno = @cycle_sno AND ws.is_active = 'Y'
+  93:             );
+  94:             IF @fs_json IS NULL OR ISJSON(@fs_json) = 0 SET @fs_json = @approval_stages;
+  95: 
+ 252:                     po_date, required_date, purpose, terms_conditions, delivery_address,
+ 253:                     is_active, workflow_types_id, current_approver_id, status, po_df_no, service_type_sno
+ 254:                 )
+ 255:                 VALUES (
+ 256:                     @cv_vendor, @brn_sno, @dept_sno, @com_sno, @div_sno, NULL, NULL, @pr_basic_sno,
+ 257:                     CAST(GETDATE() AS DATE), @period_end,
+##### sp_nt_GetWorkflowMasters (61 lines)
+  11: -- by that code. The screen now builds a short label ("PR · TCS · TCS-Coimbatore",
+  12: -- or just "KYC") — but a workflow's division/branches live on its workflow_types
+  13: -- rows, not on approval_workflow_master, which is all this procedure returned.
+  14: --
+  15: -- What changed
+  16: -- ------------
+  45:              FROM (SELECT DISTINCT CAST(LTRIM(RTRIM(d.div_prefix)) AS NVARCHAR(50)) AS div_prefix
+  46:                    FROM dbo.workflow_types AS wt
+  47:                    JOIN dbo.division_master AS d ON d.div_sno = wt.div_sno
+  48:                    WHERE wt.workflow_id = awm.workflow_id
+  49:                      AND wt.is_active = 'Y'
+  50:                      AND NULLIF(LTRIM(RTRIM(d.div_prefix)), N'') IS NOT NULL) AS x) AS division_short,
+  52:              FROM (SELECT DISTINCT CAST(LTRIM(RTRIM(b.brn_name)) AS NVARCHAR(200)) AS brn_name
+  53:                    FROM dbo.workflow_types AS wt
+  54:                    JOIN dbo.branch_master AS b ON b.brn_sno = wt.brn_sno
+  55:                    WHERE wt.workflow_id = awm.workflow_id
+  56:                      AND wt.is_active = 'Y'
+  57:                      AND NULLIF(LTRIM(RTRIM(b.brn_name)), N'') IS NOT NULL) AS y) AS branch_names
+##### sp_get_po_details_for_approval (305 lines)
+  30:             pbf.modified_date,
+  31:             pbf.workflow_types_id AS pr_workflow_types_id,
+  32:             pbf.current_approver_id AS pr_current_approver_id,
+  33:             pbf.status AS pr_status,
+  34:             pbf.pr_no AS base_pr_no,
+  35:             g.grp,
+ 103:         sq.is_active,
+ 104:         sq.workflow_types_id,
+ 105:         sq.status,
+ 106:         sq.created_by,
+ 107:         sq.created_date,
+ 108:         sq.modifed_by,
+ 270:             SELECT ws.stage_order_json
+ 271:             FROM workflow_stage ws
+ 272:             WHERE ws.workflow_types_id = sq.workflow_types_id
+ 273:               AND ws.is_active = 'Y'
+ 274:         ) AS stage_order_json
+ 275: 
+ 276:     FROM supplier_quotation_info sq
+##### sp_nt_GetSupplierQuotationsForApproval (303 lines)
+  29:             pbf.modified_date,
+  30:             pbf.workflow_types_id AS pr_workflow_types_id,
+  31:             pbf.current_approver_id AS pr_current_approver_id,
+  32:             pbf.status AS pr_status,
+  33:             pbf.pr_no AS base_pr_no,
+  34:             g.grp,
+ 104:         sq.is_active,
+ 105:         sq.workflow_types_id,
+ 106:         sq.status,
+ 107:         sq.created_by,
+ 108:         sq.created_date,
+ 109:         sq.modifed_by,
+ 271:             SELECT TOP 1 ws.stage_order_json
+ 272:             FROM workflow_stage ws
+ 273:             WHERE ws.workflow_types_id = sq.workflow_types_id
+ 274:               AND ws.is_active = 'Y'
+ 275:         ) AS stage_order_json
+ 276: 
+ 277:     FROM supplier_quotation_info sq
+##### sp_nt_CreateBankPaymentVoucher (91 lines)
+  50: 
+  51:         DECLARE @workflow_types_id INT, @first_approver VARCHAR(30);
+  52:         EXEC dbo.sp_nt_ResolveBankVoucherWorkflow
+  53:             @com_sno = @com_sno, @div_sno = @div_sno, @brn_sno = @brn_sno, @dept_sno = @dept_sno,
+  54:             @workflow_types_id = @workflow_types_id OUTPUT, @first_approver = @first_approver OUTPUT;
+  55: 
+  56:         DECLARE @year VARCHAR(4) = CAST(YEAR(GETDATE()) AS VARCHAR(4)), @seq INT;
+  57:         SELECT @seq = ISNULL(MAX(TRY_CAST(RIGHT(voucher_no, 4) AS INT)), 0) + 1
+  58:         FROM dbo.bank_payment_voucher WITH (UPDLOCK, HOLDLOCK)
+  66:             segments_json, next_due_date, next_days, next_est_interest, next_segments_json,
+  67:             remarks, status, workflow_types_id, current_approver_id, current_stage_seq, created_by
+  68:         )
+  69:         VALUES (
+  70:             @voucher_no, @agreement_sno, @com_sno, @div_sno, @brn_sno, @dept_sno, @vendor_sno,
+  71:             @from, @to, @days, @basis,
+  73:             @segments, @next_due, @next_days, @next_interest, @next_segments,
+  74:             @remarks, 'PENDING_APPROVAL', @workflow_types_id, @first_approver, 0, @created_by
+  75:         );
+  76:         DECLARE @voucher_sno INT = SCOPE_IDENTITY();
+  77: 
+  78:         INSERT INTO dbo.bank_payment_voucher_history (voucher_sno, action_type, status_by, comment)
+##### sp_nt_GetQuotationsForApproval (340 lines)
+  39:             pbf.modified_date,
+  40:             pbf.workflow_types_id AS pr_workflow_types_id,
+  41:             pbf.current_approver_id AS pr_current_approver_id,
+  42:             pbf.status AS pr_status,
+  43:             pbf.pr_no AS base_pr_no,
+  44:             g.grp,
+ 188:                 sq.is_active,
+ 189:                 sq.workflow_types_id,
+ 190:                 sq.status,
+ 191:                 sq.created_by,
+ 192:                 sq.created_date,
+ 193:                 sq.modifed_by,
+ 291:                     SELECT  ws.stage_order_json
+ 292:                     FROM workflow_stage ws
+ 293:                     WHERE ws.workflow_types_id = sq.workflow_types_id
+ 294:                       AND ws.is_active = 'Y'
+ 295:                 ) AS stage_order_json
+ 296: 
+ 297:             FROM supplier_quotation_info sq

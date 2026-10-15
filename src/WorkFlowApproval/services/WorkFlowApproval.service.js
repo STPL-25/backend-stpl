@@ -7,6 +7,11 @@ class WorkFlowApprovalService {
   static saveFullWorkflow(data)          { return this.repo.saveFullWorkflow(data); }
   static getWorkflows()                  { return this.repo.getWorkflows(); }
   static getEntityTypes()                { return this.repo.getEntityTypes(); }
+  static getApprovalRoutes()             { return this.repo.getApprovalRoutes(); }
+  static saveApprovalRoute(data)         { return this.repo.saveApprovalRoute(data); }
+  static saveApprovalModule(d)           { return this.repo.saveApprovalModule(d); }
+  static saveApprovalVariant(d)          { return this.repo.saveApprovalVariant(d); }
+  static createApprovalVariantEntity(d)  { return this.repo.createApprovalVariantEntity(d); }
   static getWorkflowByEntity(entityType) { return this.repo.getWorkflowByEntity(entityType); }
   static getConditionFields(entityType)  { return this.repo.getConditionFields(entityType); }
   static updateWorkflow(data)            { return this.repo.updateWorkflow(data); }

@@ -22,14 +22,23 @@ class KycVerificationRepo {
     text("udyam_registered_date", 20);
     request.input("nature_of_business_activities", mssql.NVarChar(mssql.MAX),
       summary.nature_of_business_activities == null ? null : JSON.stringify(summary.nature_of_business_activities));
-    await request.query(`
-      INSERT INTO dbo.kyc_verification_response
-        (verify_type, identifier, reference_id, is_valid, response_json, certificate_url,
-         pan_status, gst_status, gst_taxpayer_type, gst_last_update_date, nature_of_business_activities,
-         msme_type, major_activity, udyam_registered_date)
-      VALUES (@verify_type, @identifier, @reference_id, @is_valid, @response_json, @certificate_url,
-         @pan_status, @gst_status, @gst_taxpayer_type, @gst_last_update_date, @nature_of_business_activities,
-         @msme_type, @major_activity, @udyam_registered_date)`);
+    await request.execute("sp_kyc_verification_save");
+  }
+
+  // Latest stored successful lookup for this identifier (is_valid = 1), or null.
+  // Lets callers skip a paid Cashfree call when the answer is already on file.
+  async findValid(verifyType, identifier) {
+    const request = mssqlPool.request();
+    request.input("verify_type", mssql.VarChar(10), verifyType);
+    request.input("identifier", mssql.NVarChar(60), identifier);
+    const r = await request.execute("sp_kyc_verification_find_valid");
+    const row = r.recordset[0];
+    if (!row) return null;
+    try {
+      return { response: JSON.parse(row.response_json), certificateUrl: row.certificate_url || "", gstStatus: row.gst_status };
+    } catch {
+      return null;
+    }
   }
 
   // Attach the lookups the server itself made (never client-supplied JSON) to the
@@ -40,10 +49,7 @@ class KycVerificationRepo {
       request.input("sno", mssql.Int, kycBasicInfoSno);
       request.input("verify_type", mssql.VarChar(10), verifyType);
       request.input("identifier", mssql.NVarChar(60), identifier);
-      await request.query(`
-        UPDATE dbo.kyc_verification_response
-           SET kyc_basic_info_sno = @sno
-         WHERE kyc_basic_info_sno IS NULL AND verify_type = @verify_type AND identifier = @identifier`);
+      await request.execute("sp_kyc_verification_link_to_kyc");
     }
   }
 
@@ -51,44 +57,29 @@ class KycVerificationRepo {
   async syncBasicInfo(kycBasicInfoSno) {
     const request = mssqlPool.request();
     request.input("sno", mssql.Int, kycBasicInfoSno);
-    await request.query(`
-      UPDATE k SET
-        pan_status = ISNULL((SELECT TOP 1 r.pan_status FROM dbo.kyc_verification_response r
-                      WHERE r.kyc_basic_info_sno = k.kyc_basic_info_sno AND r.verify_type = 'PAN' AND r.pan_status IS NOT NULL ORDER BY r.id DESC), k.pan_status),
-        msme_type  = ISNULL((SELECT TOP 1 r.msme_type FROM dbo.kyc_verification_response r
-                      WHERE r.kyc_basic_info_sno = k.kyc_basic_info_sno AND r.verify_type = 'UDYAM' AND r.msme_type IS NOT NULL ORDER BY r.id DESC), k.msme_type)
-      FROM dbo.kyc_basic_info k WHERE k.kyc_basic_info_sno = @sno`);
+    await request.execute("sp_kyc_verification_sync_basic_info");
   }
 
   // Live (approved or pending) KYCs only — a rejected one may re-register.
   async findLiveKyc(column, value) {
     const request = mssqlPool.request();
+    request.input("column", mssql.VarChar(10), column);
     request.input("value", mssql.VarChar(20), value);
-    const r = await request.query(`
-      SELECT TOP 1 kyc_basic_info_sno, status FROM dbo.kyc_basic_info
-       WHERE ${column} = @value AND is_active = 'Y' AND status IN ('A', 'P')
-       ORDER BY kyc_basic_info_sno DESC`);
+    const r = await request.execute("sp_kyc_verification_find_live_kyc");
     return r.recordset[0] || null;
   }
 
   async latestCertificateUrl(udyamNo) {
     const request = mssqlPool.request();
     request.input("identifier", mssql.NVarChar(60), udyamNo);
-    const r = await request.query(`
-      SELECT TOP 1 certificate_url FROM dbo.kyc_verification_response
-       WHERE verify_type = 'UDYAM' AND identifier = @identifier AND certificate_url IS NOT NULL
-       ORDER BY id DESC`);
+    const r = await request.execute("sp_kyc_verification_latest_certificate_url");
     return r.recordset[0]?.certificate_url || "";
   }
 
   async getByKyc(kycBasicInfoSno) {
     const request = mssqlPool.request();
     request.input("sno", mssql.Int, kycBasicInfoSno);
-    const r = await request.query(`
-      SELECT verify_type, identifier, reference_id, is_valid, response_json, certificate_url, created_at,
-             pan_status, gst_status, gst_taxpayer_type, gst_last_update_date, nature_of_business_activities,
-             msme_type, major_activity, udyam_registered_date
-        FROM dbo.kyc_verification_response WHERE kyc_basic_info_sno = @sno ORDER BY id`);
+    const r = await request.execute("sp_kyc_verification_get_by_kyc");
     return r.recordset;
   }
 }

@@ -9,6 +9,11 @@ WorkFlowApprovalrouter.post("/saveFullWorkflow",               WorkFlowApprovalC
 WorkFlowApprovalrouter.get("/getWorkflows",                     WorkFlowApprovalController.getWorkflows);//cacheMiddleware("wf:workflows", 600),
 WorkFlowApprovalrouter.get("/getEntityTypes",                   WorkFlowApprovalController.getEntityTypes);
 WorkFlowApprovalrouter.get("/getConditionFields",               WorkFlowApprovalController.getConditionFields);
+WorkFlowApprovalrouter.get("/getApprovalRoutes",                WorkFlowApprovalController.getApprovalRoutes);
+WorkFlowApprovalrouter.post("/saveApprovalRoute",               WorkFlowApprovalController.saveApprovalRoute);
+WorkFlowApprovalrouter.post("/saveApprovalModule",              WorkFlowApprovalController.saveApprovalModule);
+WorkFlowApprovalrouter.post("/saveApprovalVariant",             WorkFlowApprovalController.saveApprovalVariant);
+WorkFlowApprovalrouter.post("/createApprovalVariantEntity",     WorkFlowApprovalController.createApprovalVariantEntity);
 WorkFlowApprovalrouter.get("/getWorkflowByEntity/:entityType",  WorkFlowApprovalController.getWorkflowByEntity);
 WorkFlowApprovalrouter.put("/updateWorkflow",                  WorkFlowApprovalController.updateWorkflow);
 WorkFlowApprovalrouter.delete("/deleteWorkflow",               WorkFlowApprovalController.deleteWorkflow);

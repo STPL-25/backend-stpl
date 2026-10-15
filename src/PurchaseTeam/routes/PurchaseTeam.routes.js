@@ -28,6 +28,9 @@ PurchaseTeamRouter.post("/createVendorDrivenPO", PurchaseTeamController.createVe
 // Email the frontend-generated PO PDF to the supplier
 PurchaseTeamRouter.post("/sendPOEmail", upload.any(), PurchaseTeamController.sendPOEmail);
 
+// Supplier's primary bank account (PO PDF payment block)
+PurchaseTeamRouter.get("/getVendorBankDetails/:vendorSno", PurchaseTeamController.getVendorBankDetails);
+
 // Update item quantity
 PurchaseTeamRouter.post("/updateItemQuantity", PurchaseTeamController.updateItemQuantity);
 
