@@ -1,0 +1,15 @@
+import fs from 'fs';
+let d = fs.readFileSync('tmp/gst/sp_nt_CreateSupplierQuotation.sql','utf8');
+fs.mkdirSync('sql/backups/charges_gst_2026-10-16',{recursive:true});
+fs.writeFileSync('sql/backups/charges_gst_2026-10-16/sp_nt_CreateSupplierQuotation.orig.sql', d);
+const rep=(a,b)=>{ if(!d.includes(a)) throw new Error('missing '+a); d=d.replace(a,b); };
+rep(/@other_charges\s+DECIMAL\(18,2\),/.exec(d)[0], m=>m);
+d = d.replace(/(@other_charges\s+DECIMAL\(18,2\),)/, "$1\n            @freight_gst_pct          DECIMAL(5,2),\n            @other_charges_gst_pct    DECIMAL(5,2),");
+d = d.replace(/(@other_charges\s+= ISNULL\(TRY_CAST\(JSON_VALUE\(@jsonInput, '\$\.other_charges'\) AS DECIMAL\(18,2\)\), 0\),)/, "$1\n            @freight_gst_pct          = ISNULL(TRY_CAST(JSON_VALUE(@jsonInput, '$.freight_gst_pct') AS DECIMAL(5,2)), 0),\n            @other_charges_gst_pct    = ISNULL(TRY_CAST(JSON_VALUE(@jsonInput, '$.other_charges_gst_pct') AS DECIMAL(5,2)), 0),");
+d = d.replace(/(\n\s+)other_charges,(\s*\n\s+is_msme,)/, "$1other_charges,$1freight_gst_pct,$1other_charges_gst_pct,$2");
+d = d.replace(/(\n\s+)@other_charges,(\s*\n\s+@is_msme,)/, "$1@other_charges,$1@freight_gst_pct,$1@other_charges_gst_pct,$2");
+d = d.replace(/(IF @freight_charges < 0 OR @other_charges < 0)/, "IF @freight_gst_pct < 0 OR @freight_gst_pct > 100 OR @other_charges_gst_pct < 0 OR @other_charges_gst_pct > 100\n            RAISERROR('Charges GST % must be between 0 and 100.', 16, 1);\n        $1");
+const n=(d.match(/freight_gst_pct/g)||[]).length; console.log('occurrences',n);
+d = d.replace(/^CREATE\s+PROCEDURE/i,'CREATE OR ALTER PROCEDURE');
+const hdr = `-- 133: Supplier Quotation — GST % on freight / other charges (charges become taxable).\n-- Adds supplier_quotation_info.freight_gst_pct / other_charges_gst_pct (default 0) and stores them in sp_nt_CreateSupplierQuotation.\n-- Original SP: sql/backups/charges_gst_2026-10-16/sp_nt_CreateSupplierQuotation.orig.sql\nIF COL_LENGTH('dbo.supplier_quotation_info','freight_gst_pct') IS NULL ALTER TABLE dbo.supplier_quotation_info ADD freight_gst_pct DECIMAL(5,2) NOT NULL CONSTRAINT DF_sqi_freight_gst DEFAULT 0;\nIF COL_LENGTH('dbo.supplier_quotation_info','other_charges_gst_pct') IS NULL ALTER TABLE dbo.supplier_quotation_info ADD other_charges_gst_pct DECIMAL(5,2) NOT NULL CONSTRAINT DF_sqi_other_gst DEFAULT 0;\nGO\n`;
+fs.writeFileSync('sql/133_quotation_charges_gst.sql', hdr + d.trim() + '\nGO\n');

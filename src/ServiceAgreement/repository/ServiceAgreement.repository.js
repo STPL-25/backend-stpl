@@ -25,36 +25,6 @@ class ServiceAgreementRepository {
     return this.executeJsonProcedure("sp_nt_UpdateServiceAgreement", payload);
   }
 
-  async getServiceTypeCode(service_sno) {
-    try {
-      const request = mssqlPool.request();
-      request.input("service_sno", mssql.Int, service_sno);
-      const result = await request.query(
-        `SELECT st.service_type_code
-           FROM dbo.service_master sm
-           JOIN dbo.service_type_master st ON st.service_type_sno = sm.service_type_sno
-          WHERE sm.service_sno = @service_sno`
-      );
-      return result.recordset[0]?.service_type_code ?? null;
-    } catch (error) {
-      throw new Error(`Database error: ${error.message}`);
-    }
-  }
-
-  // A loan (Statutory agreement) has no per-cycle rate or PO cadence of its own, but the
-  // agreement row still needs one — it is the monthly cadence, keyed by its code rather
-  // than a hardcoded sno since master snos aren't stable.
-  async getMonthlyCadenceSno() {
-    try {
-      const result = await mssqlPool.request().query(
-        "SELECT TOP 1 recurrence_cadence_sno FROM dbo.recurrence_cadence_master WHERE cadence_code = 'MONTHLY' AND is_active = 'Y'"
-      );
-      return result.recordset[0]?.recurrence_cadence_sno ?? null;
-    } catch (error) {
-      throw new Error(`Database error: ${error.message}`);
-    }
-  }
-
   async uploadSignedDoc(payload) {
     return this.executeJsonProcedure("sp_nt_UploadServiceAgreementSignedDoc", payload);
   }

@@ -1,0 +1,79 @@
+[
+ {
+  "rate_period_sno": 3,
+  "agreement_sno": 5042,
+  "effective_from": "2026-07-16T00:00:00.000Z",
+  "benchmark_rate_pct": 6.25,
+  "spread_pct": 2.25,
+  "interest_rate_pct": 8.5,
+  "remarks": "RBI policy - repo cut 25 bps",
+  "created_by": "KTM1148",
+  "created_at": "2026-09-21T13:23:42.520Z"
+ },
+ {
+  "rate_period_sno": 7,
+  "agreement_sno": 5042,
+  "effective_from": "2026-09-30T00:00:00.000Z",
+  "benchmark_rate_pct": 10,
+  "spread_pct": 2.25,
+  "interest_rate_pct": 12.25,
+  "remarks": null,
+  "created_by": "KTM1148",
+  "created_at": "2026-09-21T13:39:58.240Z"
+ },
+ {
+  "rate_period_sno": 8,
+  "agreement_sno": 5042,
+  "effective_from": "2026-09-03T00:00:00.000Z",
+  "benchmark_rate_pct": 10,
+  "spread_pct": 2.25,
+  "interest_rate_pct": 12.25,
+  "remarks": null,
+  "created_by": "KTM1148",
+  "created_at": "2026-09-21T13:40:45.877Z"
+ },
+ {
+  "rate_period_sno": 9,
+  "agreement_sno": 5043,
+  "effective_from": "2026-09-08T00:00:00.000Z",
+  "benchmark_rate_pct": null,
+  "spread_pct": null,
+  "interest_rate_pct": 14,
+  "remarks": null,
+  "created_by": "KTM1148",
+  "created_at": "2026-09-21T13:45:21.570Z"
+ },
+ {
+  "rate_period_sno": 10,
+  "agreement_sno": 5045,
+  "effective_from": "2026-09-10T00:00:00.000Z",
+  "benchmark_rate_pct": 6,
+  "spread_pct": 2.25,
+  "interest_rate_pct": 8.25,
+  "remarks": null,
+  "created_by": "KTM1148",
+  "created_at": "2026-09-22T11:48:06.230Z"
+ },
+ {
+  "rate_period_sno": 11,
+  "agreement_sno": 5053,
+  "effective_from": "2026-09-10T00:00:00.000Z",
+  "benchmark_rate_pct": 6,
+  "spread_pct": 2.5,
+  "interest_rate_pct": 8.5,
+  "remarks": null,
+  "created_by": "KTM1148",
+  "created_at": "2026-09-22T17:50:35.483Z"
+ },
+ {
+  "rate_period_sno": 12,
+  "agreement_sno": 5053,
+  "effective_from": "2026-09-15T00:00:00.000Z",
+  "benchmark_rate_pct": 7.5,
+  "spread_pct": 2.5,
+  "interest_rate_pct": 10,
+  "remarks": null,
+  "created_by": "KTM1148",
+  "created_at": "2026-09-22T17:51:14.780Z"
+ }
+]

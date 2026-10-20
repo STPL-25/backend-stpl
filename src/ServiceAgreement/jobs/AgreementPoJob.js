@@ -189,7 +189,7 @@ async function runServicePoAlertSweep(io) {
 }
 
 // sql/104: every approver is told, once per item, when a PR / PO / quotation / KYC / Service
-// Agreement / Service PO / Service Vendor KYC / loan voucher is waiting for them. data.screen
+// Agreement / Service PO / Service Vendor KYC is waiting for them. data.screen
 // is the approval screen the bell opens on click.
 async function runApprovalNoticeSweep(io) {
   let rows;
@@ -252,7 +252,6 @@ async function runApproverChangeNoticeSweep(io) {
     KYC: ["kyc:approval", "kyc:approval:updated"],
     ServiceAgreement: ["service_agreement:approval", "service_agreement:approval:updated"],
     ServicePO: ["service_po:approval", "service_po:approval:updated"],
-    BankPaymentVoucher: ["loan_voucher:approval", "loan_voucher:approval:updated"],
   };
   for (const entityType of new Set(rows.map((r) => r.entity_type))) {
     const target = LIVE_REFRESH[entityType];

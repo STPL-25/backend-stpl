@@ -38,9 +38,14 @@ class CommonMasterRepo {
             // consumers: Payment, VendorBill, Vendor-Driven PR).
             "ServiceKycVendorMaster": "sp_nt_GetApprovedServiceKycVendorsForPicker",
             "PaymentModeMaster": "sp_nt_GetPaymentModeRecords",
+            "TdsSectionMaster": "sp_nt_GetTdsSectionRecords",
             "ServiceTypeMaster": "sp_nt_GetServiceTypeRecords",
             "ServiceMaster": "sp_nt_GetServiceRecords",
-            "RecurrenceCadenceMaster": "sp_nt_GetRecurrenceCadenceRecords"
+            "RecurrenceCadenceMaster": "sp_nt_GetRecurrenceCadenceRecords",
+            // Chart of accounts (from the Tally trial balance). AccountLedgerMaster = postable Asset/Expense
+            // ledgers only, for the Product form's Account Head picker (sql/131).
+            "AccountHeadMaster": "sp_nt_GetAccountHeadRecords",
+            "AccountLedgerMaster": "sp_nt_GetAccountLedgerOptions"
         };
 
         this.createProcedureMap = {
@@ -67,9 +72,11 @@ class CommonMasterRepo {
             "DesignationMaster": "sp_nt_CreateDesignationRecords",
             "SupplierCatagoryMaster": "sp_nt_CreateSupplierCategoryRecords",
             "PaymentModeMaster": "sp_nt_CreatePaymentModeRecords",
+            "TdsSectionMaster": "sp_nt_CreateTdsSectionRecords",
             "ServiceTypeMaster": "sp_nt_CreateServiceTypeRecords",
             "ServiceMaster": "sp_nt_CreateServiceRecords",
-            "RecurrenceCadenceMaster": "sp_nt_CreateRecurrenceCadenceRecords"
+            "RecurrenceCadenceMaster": "sp_nt_CreateRecurrenceCadenceRecords",
+            "AccountHeadMaster": "sp_nt_CreateAccountHeadRecords"
         };
 
         // lowercase keys: updateCommonMaster/deleteCommonMaster look up with
@@ -98,9 +105,11 @@ class CommonMasterRepo {
             'designationmaster': 'sp_nt_UpdateDesignationRecords',
             'suppliercatagorymaster': 'sp_nt_UpdateSupplierCategoryRecords',
             'paymentmodemaster': 'sp_nt_UpdatePaymentModeRecords',
+            'tdssectionmaster': 'sp_nt_UpdateTdsSectionRecords',
             'servicetypemaster': 'sp_nt_UpdateServiceTypeRecords',
             'servicemaster': 'sp_nt_UpdateServiceRecords',
             'recurrencecadencemaster': 'sp_nt_UpdateRecurrenceCadenceRecords',
+            'accountheadmaster': 'sp_nt_UpdateAccountHeadRecords',
         };
 
         this.deleteProcedureMap = {
@@ -125,9 +134,11 @@ class CommonMasterRepo {
             'designationmaster': 'sp_nt_DeleteDesignationRecords',
             'suppliercatagorymaster': 'sp_nt_DeleteSupplierCategoryRecords',
             'paymentmodemaster': 'sp_nt_DeletePaymentModeRecords',
+            'tdssectionmaster': 'sp_nt_DeleteTdsSectionRecords',
             'servicetypemaster': 'sp_nt_DeleteServiceTypeRecords',
             'servicemaster': 'sp_nt_DeleteServiceRecords',
             'recurrencecadencemaster': 'sp_nt_DeleteRecurrenceCadenceRecords',
+            'accountheadmaster': 'sp_nt_DeleteAccountHeadRecords',
         };
         this.fieldMappings = {
         'CompanyMaster': { label: 'com_name', value: 'com_sno' },
@@ -169,6 +180,9 @@ class CommonMasterRepo {
         'ServiceTypeMaster': { label: 'service_type_name', value: 'service_type_sno', extra: ['service_type_code'] },
         'ServiceMaster': { label: 'service_name', value: 'service_sno', extra: ['service_type_sno', 'service_type_code', 'default_uom_sno'] },
         'RecurrenceCadenceMaster': { label: 'cadence_name', value: 'recurrence_cadence_sno', extra: ['cadence_code', 'interval_unit', 'interval_value'] },
+        // Parent picker on the Account Head master lists the whole chart; the Product form uses AccountLedgerMaster (ledgers only).
+        'AccountHeadMaster': { label: 'head_path', value: 'head_sno', extra: ['head_code', 'head_type', 'is_group'] },
+        'AccountLedgerMaster': { label: 'head_label', value: 'head_sno', extra: ['head_code', 'head_type'] },
     };
 
     }

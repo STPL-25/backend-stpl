@@ -81,14 +81,6 @@ class ServiceAgreementService {
     };
   }
 
-  static async getServiceTypeCode(service_sno) {
-    return this.repo.getServiceTypeCode(service_sno);
-  }
-
-  static async getMonthlyCadenceSno() {
-    return this.repo.getMonthlyCadenceSno();
-  }
-
   static async getAgreementsDueForNotification() {
     return this.repo.getAgreementsDueForNotification();
   }

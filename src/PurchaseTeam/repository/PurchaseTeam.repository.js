@@ -84,6 +84,31 @@ class PurchaseTeamRepository {
     }
   }
 
+  // While a quotation is still in PO approval (status 'P' with a current approver), only that approver may
+  // pick the winner, and only from a stage flagged can_select_quotation = 'Y' in the workflow. Once the
+  // approval is over (any other status) the old Purchase-side behaviour is untouched.
+  async assertCanSelectQuotation(sqBasicSno, ecno) {
+    const request = mssqlPool.request();
+    request.input("sq_basic_sno", mssql.Int, sqBasicSno);
+    const result = await request.query(
+      `SELECT sq.status, sq.approver_ecno,
+              (SELECT TOP 1 ws.stage_order_json FROM workflow_stage ws
+                WHERE ws.workflow_types_id = sq.workflow_types_id AND ws.is_active = 'Y') AS stage_order_json
+       FROM supplier_quotation_info sq
+       WHERE sq.sq_basic_sno = @sq_basic_sno AND sq.is_active = 1`
+    );
+    const row = result.recordset[0];
+    if (!row) throw new Error("Quotation not found");
+    if (row.status !== "P" || !row.approver_ecno) return;
+    if (row.approver_ecno !== ecno) throw new Error("Only the current approver can select a quotation");
+    let stages = [];
+    try { stages = JSON.parse(row.stage_order_json || "[]"); } catch { /* treated as no stages */ }
+    const stage = stages.find((s) => s.approver_ecno === ecno);
+    if (stage?.can_select_quotation !== "Y") {
+      throw new Error("Your approval stage is not allowed to select a quotation");
+    }
+  }
+
   async selectQuotation(selectedQuotation, selectedBy) {
     try {
       selectedQuotation.selected_by = selectedBy;

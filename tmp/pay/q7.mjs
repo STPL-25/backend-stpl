@@ -1,0 +1,10 @@
+import sql from 'mssql';
+const pool = await new sql.ConnectionPool({user:'admin',password:'admin123',server:'10.0.21.8',port:1433,database:'Non_trade_Dev',options:{trustServerCertificate:true,encrypt:false}}).connect();
+const q=async(s)=>console.log(JSON.stringify((await pool.request().query(s)).recordset));
+await q(`select 'dn' t,(select string_agg(name,',') from sys.columns where object_id=object_id('debit_note_basic_info')) c union all select 'dni',(select string_agg(name,',') from sys.columns where object_id=object_id('debit_note_item_details')) union all select 'cn',(select string_agg(name,',') from sys.columns where object_id=object_id('credit_note_basic_info')) union all select 'adv',(select string_agg(name,',') from sys.columns where object_id=object_id('nt_supplier_advance_payment'))`);
+await q(`select top 6 d.debit_note_sno,d.debit_note_no,d.po_basic_sno,d.grn_basic_sno,d.total_amount,d.remarks from debit_note_basic_info d order by 1 desc`);
+await q(`select top 6 po_item_sno,qty,agreed_unit_price,total_cost,discount_pct,tax_pct,net_cost from po_item_details where po_basic_sno=1102`);
+await q(`select g.grn_item_sno,g.po_qty,g.received_qty,g.rejected_qty,g.shortage_qty,g.excess_qty,g.hold_qty,g.excess_status,g.invoice_qty,g.net_cost,g.tax_pct from grn_item_details g where grn_basic_sno=41`);
+await q(`select top 5 * from nt_supplier_advance_payment order by 1 desc`);
+await q(`select count(*) n, sum(case when shortage_qty>0 then 1 else 0 end) sh, sum(case when excess_qty>0 then 1 else 0 end) ex from grn_item_details`);
+process.exit(0);

@@ -48,7 +48,7 @@ class ServiceVendorKycRepository {
   }
 
   // Pending records for the logged-in approver — takes a bare @Ecno, not the
-  // generic @jsonInput wrapper, same as LoanVoucher's ...ForApproval query.
+  // generic @jsonInput wrapper.
   async getServiceVendorKycsForApproval(ecno) {
     try {
       const request = mssqlPool.request();

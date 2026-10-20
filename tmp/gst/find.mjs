@@ -1,0 +1,10 @@
+import sql from 'mssql';
+import fs from 'fs';
+const pool = await new sql.ConnectionPool({user:'admin',password:'admin123',server:'10.0.21.8',port:1433,database:'Non_trade_Dev',options:{trustServerCertificate:true,encrypt:false}}).connect();
+const u = await pool.request().query(`select o.name from sys.sql_modules m join sys.objects o on o.object_id=m.object_id where m.definition like '%po_header%' or m.definition like '%sp_nt_CreatePOFromQuotation%'`);
+console.log(u.recordset.map(x=>x.name));
+const c = await pool.request().query(`select name from sys.columns where object_id=object_id('po_request_info')`);
+console.log(c.recordset.map(x=>x.name).join(','));
+const d = await pool.request().query(`select definition from sys.sql_modules where object_id=object_id('dbo.sp_nt_CreatePOFromQuotation')`);
+fs.writeFileSync('tmp/gst/sp_nt_CreatePOFromQuotation.sql', d.recordset[0].definition);
+process.exit(0);

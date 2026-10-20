@@ -115,7 +115,8 @@ class PurchaseTeamController {
   static async selectQuotation(req, res) {
     try {
       const user = getAuthUser(req);
-      const ecno = user?.ecno;
+      // user_ecno also covers non-staff approvers (login_id), who have no ecno on the session user.
+      const ecno = req.user_ecno ?? user?.ecno;
       // if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
 
       const { selectedQuotation } = req.body;

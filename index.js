@@ -24,9 +24,9 @@ import { paymentSocketRooms } from "./src/Middleware/paymentSocketAccess.js";
 import UserApprovalrouter from "./src/UserApproval/routes/UserApproval.routes.js";
 import Kycrouter from "./src/Kyc/routes/Kyc.routes.js";
 import ServiceAgreementRouter from "./src/ServiceAgreement/routes/ServiceAgreement.routes.js";
+import SpecialAgreementRouter from "./src/SpecialAgreement/routes/SpecialAgreement.routes.js";
 import { startServiceAgreementScheduledJobs } from "./src/ServiceAgreement/jobs/AgreementPoJob.js";
 import ServicePoRouter from "./src/ServicePo/routes/ServicePo.routes.js";
-import LoanVoucherRouter from "./src/LoanVoucher/routes/LoanVoucher.routes.js";
 import ServiceGrnRouter from "./src/ServiceGrn/routes/ServiceGrn.routes.js";
 import ServiceVendorKycRouter from "./src/ServiceVendorKyc/routes/ServiceVendorKyc.routes.js";
 import PublicKycRouter from "./src/Kyc/routes/PublicKyc.routes.js";
@@ -229,6 +229,14 @@ io.on("connection", (socket) => {
         socket.leave("service_agreement:approval");
     });
 
+    socket.on("join-special-agreement-approval", () => {
+        socket.join("special_agreement:approval");
+    });
+
+    socket.on("leave-special-agreement-approval", () => {
+        socket.leave("special_agreement:approval");
+    });
+
     socket.on("join-service-po-approval", () => {
         socket.join("service_po:approval");
     });
@@ -237,13 +245,7 @@ io.on("connection", (socket) => {
         socket.leave("service_po:approval");
     });
 
-    socket.on("join-loan-voucher-approval", () => {
-        socket.join("loan_voucher:approval");
-    });
 
-    socket.on("leave-loan-voucher-approval", () => {
-        socket.leave("loan_voucher:approval");
-    });
 
     socket.on("join-service-vendor-kyc-approval", () => {
         socket.join("service_vendor_kyc:approval");
@@ -477,9 +479,9 @@ app.use("/api/budget",            verifyJWT,      BudgetRouter);
 app.use("/api/kyc",                verifyJWT,    Kycrouter);
 app.use("/api/service_vendor_kyc", verifyJWT,    ServiceVendorKycRouter);
 app.use("/api/service_agreement",  verifyJWT,    ServiceAgreementRouter);
+app.use("/api/special_agreement",  verifyJWT,    SpecialAgreementRouter);
 app.use("/api/service_grn",        verifyJWT,    ServiceGrnRouter);
 app.use("/api/service_po",         verifyJWT,    ServicePoRouter);
-app.use("/api/loan_voucher",       verifyJWT,    LoanVoucherRouter);
 app.use("/api/workflow_approval",     verifyJWT,     WorkFlowApprovalrouter);
 app.use("/api/pr",                    verifyJWT,                    PRrouter);
 app.use("/api/po",                    verifyJWT,                    POrouter);

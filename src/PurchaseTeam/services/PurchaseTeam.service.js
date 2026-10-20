@@ -36,6 +36,7 @@ class PurchaseTeamService {
   }
 
   static async selectQuotation(selectedQuotation, selectedBy) {
+    await this.repo.assertCanSelectQuotation(selectedQuotation?.sq_basic_sno, selectedBy);
     return this.repo.selectQuotation(selectedQuotation, selectedBy);
   }
 

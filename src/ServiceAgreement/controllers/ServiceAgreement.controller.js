@@ -11,8 +11,8 @@ const SIGNED_DOC_SUBDIRECTORY = "NON_TRADE_DATAS/SERVICE_AGREEMENTS_SIGNED";
 const notifyAgreementChange = (req, payload) =>
   req.io?.to("service_agreement:approval").emit("service_agreement:approval:updated", payload);
 
-// The create/edit forms post multipart FormData, so the supplier split and the
-// Statutory facility block arrive as JSON strings (or already-parsed values when
+// The create/edit forms post multipart FormData, so the supplier split
+// arrives as a JSON string (or already-parsed values when
 // the client posts JSON). Returns undefined for absent/blank, throws on garbage.
 function parseJsonField(value, fieldName) {
   if (value === undefined || value === null || value === "") return undefined;
@@ -42,36 +42,6 @@ function readSuppliers(body) {
   return { vendors };
 }
 
-// A loan (Statutory agreement) is priced by its facility terms and billed through Bank
-// Payment Vouchers, so it has no rate, quantity or PO cadence of its own. The agreement
-// row still needs them (sp_nt_CreateServiceAgreement validates each), so they are derived
-// here instead of being asked for: one lender carrying the whole sanctioned amount,
-// "billed" monthly on the interest payment day. Fixed and Unfixed pass through untouched.
-async function withLoanDefaults(body, statutory) {
-  const service_sno = Number(body.service_sno);
-  if (!statutory || !Number.isInteger(service_sno)) return null;
-  if ((await ServiceAgreementService.getServiceTypeCode(service_sno)) !== "STATUTORY") return null;
-
-  const sanctioned = Number(statutory.sanctioned_amount);
-  if (!(sanctioned > 0)) return { error: "The sanctioned loan amount is required" };
-
-  const lender = body.vendor_sno || parseJsonField(body.vendors, "vendors")?.[0]?.vendor_sno;
-  if (!lender) return { error: "The lender (bank / NBFC) is required" };
-
-  const recurrence_cadence_sno = await ServiceAgreementService.getMonthlyCadenceSno();
-  if (!recurrence_cadence_sno) return { error: "No active Monthly recurrence cadence is configured" };
-
-  return {
-    qty: 1,
-    rate_amount: sanctioned,
-    recurrence_cadence_sno,
-    po_generation_day: statutory.interest_payment_day,
-    notify_days_before: 0,
-    vendor_sno: lender,
-    vendors: [{ vendor_sno: Number(lender), share_amount: sanctioned }],
-  };
-}
-
 class ServiceAgreementController {
   static async createServiceAgreement(req, res) {
     try {
@@ -88,14 +58,10 @@ class ServiceAgreementController {
       if (!com_sno || !div_sno || !brn_sno || !dept_sno || !service_sno) {
         return res.status(400).json({ success: false, error: "com_sno, div_sno, brn_sno, dept_sno and service_sno are required" });
       }
-      const statutory = parseJsonField(req.body.statutory, "statutory");
-      const loan = await withLoanDefaults(req.body, statutory);
-      if (loan?.error) return res.status(400).json({ success: false, error: loan.error });
-      if (loan) ({ qty, rate_amount, recurrence_cadence_sno, po_generation_day, notify_days_before, vendor_sno } = loan);
-      const { vendors, error: supplierError } = loan ? { vendors: loan.vendors } : readSuppliers(req.body);
+      const { vendors, error: supplierError } = readSuppliers(req.body);
       if (supplierError) return res.status(400).json({ success: false, error: supplierError });
       if (!qty || !rate_amount) {
-        return res.status(400).json({ success: false, error: "qty and rate_amount are required (an approximate rate is fine for an Unfixed or Statutory agreement)" });
+        return res.status(400).json({ success: false, error: "qty and rate_amount are required (an approximate rate is fine for an Unfixed agreement)" });
       }
       if (!recurrence_cadence_sno) {
         return res.status(400).json({ success: false, error: "recurrence_cadence_sno is required" });
@@ -119,7 +85,7 @@ class ServiceAgreementController {
       }
 
       const data = await ServiceAgreementService.createServiceAgreement({
-        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno, vendors, statutory,
+        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno, vendors,
         qty, rate_amount, rate_uom_sno, recurrence_cadence_sno,
         po_generation_day, notify_days_before,
         period_start_date, period_end_date, remarks, terms_conditions,
@@ -167,11 +133,7 @@ class ServiceAgreementController {
       if (!com_sno || !div_sno || !brn_sno || !dept_sno || !service_sno) {
         return res.status(400).json({ success: false, error: "com_sno, div_sno, brn_sno, dept_sno and service_sno are required" });
       }
-      const statutory = parseJsonField(req.body.statutory, "statutory");
-      const loan = await withLoanDefaults(req.body, statutory);
-      if (loan?.error) return res.status(400).json({ success: false, error: loan.error });
-      if (loan) ({ qty, rate_amount, recurrence_cadence_sno, po_generation_day, notify_days_before, vendor_sno } = loan);
-      const { vendors, error: supplierError } = loan ? { vendors: loan.vendors } : readSuppliers(req.body);
+      const { vendors, error: supplierError } = readSuppliers(req.body);
       if (supplierError) return res.status(400).json({ success: false, error: supplierError });
       if (!qty || !rate_amount) {
         return res.status(400).json({ success: false, error: "qty and rate_amount are required" });
@@ -193,7 +155,7 @@ class ServiceAgreementController {
 
       const data = await ServiceAgreementService.updateServiceAgreement({
         agreement_sno,
-        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno, vendors, statutory,
+        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno, vendors,
         qty, rate_amount, rate_uom_sno, recurrence_cadence_sno,
         po_generation_day, notify_days_before,
         period_start_date, period_end_date, remarks, terms_conditions,

@@ -61,9 +61,11 @@ const REQUIRED_FIELDS = {
   DesignationMaster: ["designation_code", "designation_name"],
   SupplierCatagoryMaster: ["supp_cat_name"],
   PaymentModeMaster: ["payment_mode_code", "payment_mode_name"],
+  TdsSectionMaster: ["section_code", "description", "rate_individual", "rate_other"],
   ServiceTypeMaster: ["service_type_code", "service_type_name"],
   ServiceMaster: ["service_name", "service_code", "service_type_sno"],
   RecurrenceCadenceMaster: ["cadence_code", "cadence_name", "interval_unit", "interval_value"],
+  AccountHeadMaster: ["head_name", "head_type"],
 };
 
 // Fields that are only mandatory conditionally on another field's value.
