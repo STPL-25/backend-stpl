@@ -17,6 +17,8 @@ class SpecialAgreementRepository {
   update(payload) { return this.executeJsonProcedure("sp_nt_UpdateSpecialAgreement", payload); }
   approve(payload) { return this.executeJsonProcedure("sp_approve_special_agreement", payload); }
   list(filters = {}) { return this.executeJsonProcedure("sp_nt_GetSpecialAgreements", filters); }
+  prOptions(payload) { return this.executeJsonProcedure("sp_nt_GetSpecialAgreementOptionsForPR", payload); }
+  applyToPR(payload) { return this.executeJsonProcedure("sp_nt_ApplySpecialAgreementToPR", payload); }
   getRate(payload) { return this.executeJsonProcedure("sp_nt_GetSpecialAgreementRate", payload); }
 }
 

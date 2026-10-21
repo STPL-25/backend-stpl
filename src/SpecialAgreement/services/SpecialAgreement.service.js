@@ -23,6 +23,13 @@ class SpecialAgreementService {
   static approve(payload) { return this.repo.approve(payload); }
   static async list(filters) { return (await this.repo.list(filters)).map(parseRow); }
   static async listForApproval(ecno) { return (await this.repo.list({ approver_ecno: ecno })).map(parseRow); }
+  static async prOptions(payload) {
+    return (await this.repo.prOptions(payload)).map(({ agreements_json, ...rest }) => ({ ...rest, agreements: parseJson(agreements_json, []) }));
+  }
+  static async applyToPR(payload) {
+    const rows = await this.repo.applyToPR(payload);
+    return parseJson(rows?.[0]?.groups_json, []);
+  }
   static async getRate(prod_sno, on_date) {
     const rows = await this.repo.getRate({ prod_sno, on_date });
     return rows?.[0] ?? null;

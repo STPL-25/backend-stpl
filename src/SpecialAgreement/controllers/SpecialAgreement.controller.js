@@ -1,5 +1,7 @@
 import SpecialAgreementService from "../services/SpecialAgreement.service.js";
+import { invalidateCache, invalidateCacheByPattern } from "../../Middleware/redisCache.js";
 import { notifyApproversNow } from "../../ServiceAgreement/jobs/AgreementPoJob.js";
+import PurchaseTeamService from "../../PurchaseTeam/services/PurchaseTeam.service.js";
 import { ftpUploader } from "../../Utils/ImagesUpload/ImgUpload.js";
 
 const DOC_SUBDIRECTORY = "NON_TRADE_DATAS/SPECIAL_AGREEMENTS";
@@ -11,7 +13,7 @@ const notifyChange = (req, payload) => req.io?.to(ROOM).emit(EVENT, payload);
 // The SPs raise validation problems as THROW 583xx - those are the user's to fix (400), anything else is a 500.
 function sendError(res, error) {
   const message = String(error?.message ?? "").replace(/^Database error:\s*/, "");
-  const isValidation = /^(Add at least|Every line|The same product|One or more products|A Fixed agreement|Maximum quantity|.* is already under |The supplier must|No Special Agreement workflow|The Special Agreement workflow|This agreement is |You are not an approver|Forwarding is not|There is no later|Sending back is not|Choose an earlier|A reason is required|A valid period|agreement_type must|Special agreement not found|special_agreement_sno|com_sno)/.test(message);
+  const isValidation = /^(Add at least|Every line|The same product|One or more products|A Fixed agreement|Maximum quantity|.* is already under |The supplier must|No Special Agreement workflow|The Special Agreement workflow|This agreement is |You are not an approver|Forwarding is not|There is no later|Sending back is not|Choose an earlier|A reason is required|A valid period|agreement_type must|Special agreement not found|special_agreement_sno|com_sno|The requisition is not|No active PO approval|Nothing to allocate|Every allocation|Enter the GST|The same line|One or more lines|A quotation already|An agreement is not live|An allocation is above|Enter a rate|The allocated quantities)/.test(message);
   res.status(isValidation ? 400 : 500).json({ success: false, error: message || "Request failed" });
 }
 
@@ -131,6 +133,73 @@ class SpecialAgreementController {
       if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
       res.json({ success: true, data: await SpecialAgreementService.listForApproval(ecno) });
     } catch (error) {
+      sendError(res, error);
+    }
+  }
+
+  // Purchase page: PR lines of one entry that a live agreement covers, with the agreement suppliers.
+  static async prOptions(req, res) {
+    try {
+      const pr_basic_sno = Number(req.query.pr_basic_sno);
+      if (!Number.isInteger(pr_basic_sno) || pr_basic_sno <= 0) return res.status(400).json({ success: false, error: "pr_basic_sno is required" });
+      const group = req.query.group === undefined || req.query.group === "" || req.query.group === "null" ? null : Number(req.query.group);
+      res.json({ success: true, data: await SpecialAgreementService.prOptions({ pr_basic_sno, group }) });
+    } catch (error) {
+      sendError(res, error);
+    }
+  }
+
+  // Purchase page: allocate PR lines to agreement suppliers (qty split allowed) and raise one quotation per
+  // supplier. The split is committed first (one transaction); the quotations are then created with the
+  // existing quotation procedure so they enter normal PO approval. A failed quotation leaves its (valid)
+  // PR group in place for Purchase to quote by hand, and is reported back.
+  static async applyToPR(req, res) {
+    try {
+      const ecno = req.user_ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+      const { pr_basic_sno, group, allocations } = req.body;
+      if (!pr_basic_sno || !Array.isArray(allocations) || allocations.length === 0) {
+        return res.status(400).json({ success: false, error: "pr_basic_sno and allocations are required" });
+      }
+      const groups = await SpecialAgreementService.applyToPR({
+        pr_basic_sno, group: group ?? null, allocations, created_by: ecno,
+      });
+
+      const today = new Date().toISOString().slice(0, 10);
+      const results = [];
+      for (const g of groups) {
+        try {
+          const rows = await PurchaseTeamService.createSupplierQuotation({
+            pr_basic_sno, pr_no: g.pr_no, vendor_sno: g.vendor_sno,
+            quotation_ref_no: g.quotation_ref_no, quotation_date: today, valid_upto: String(g.valid_upto).slice(0, 10),
+            currency_code: "INR", delivery_days: 0,
+            remarks: `Raised from Special Agreement ${g.quotation_ref_no}`,
+            // the agreement document is the supplier's quotation document
+            sq_quotation_file: g.agreement_doc_url || "",
+            com_sno: g.com_sno, div_sno: g.div_sno, brn_sno: g.brn_sno, dept_sno: g.dept_sno,
+            items: g.items, created_by: ecno,
+          });
+          const ok = rows?.[0]?.success === 1 || rows?.[0]?.success === true;
+          results.push({ pr_no: g.pr_no, vendor_sno: g.vendor_sno, ok, sq_basic_sno: rows?.[0]?.sq_basic_sno, error: ok ? undefined : rows?.[0]?.message });
+        } catch (err) {
+          results.push({ pr_no: g.pr_no, vendor_sno: g.vendor_sno, ok: false, error: err.message });
+        }
+      }
+
+      await invalidateCacheByPattern(req.redisClient, "pt:quotations:*");
+      await invalidateCache(req.redisClient, "pt:approved_prs");
+      // the Purchase list is regrouped (PR/<n> entries) - push the fresh list like a split does
+      try {
+        const approvedPRs = await PurchaseTeamService.getApprovedPRs();
+        req.io?.to("purchase-team").emit("pt:split:updated", { data: approvedPRs });
+      } catch (err) {
+        console.error("pt:split:updated refresh failed:", err.message);
+      }
+      notifyApproversNow(req.io);
+
+      res.json({ success: true, data: results });
+    } catch (error) {
+      console.error("Error in applyToPR:", error.message);
       sendError(res, error);
     }
   }

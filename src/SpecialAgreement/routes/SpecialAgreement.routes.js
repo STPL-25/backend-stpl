@@ -10,5 +10,7 @@ SpecialAgreementRouter.post("/approveSpecialAgreement", SpecialAgreementControll
 SpecialAgreementRouter.get("/getSpecialAgreements", SpecialAgreementController.list);
 SpecialAgreementRouter.get("/getSpecialAgreementsForApproval", SpecialAgreementController.listForApproval);
 SpecialAgreementRouter.get("/getSpecialAgreementRate", SpecialAgreementController.getRate);
+SpecialAgreementRouter.get("/getOptionsForPR", SpecialAgreementController.prOptions);
+SpecialAgreementRouter.post("/applyToPR", SpecialAgreementController.applyToPR);
 
 export default SpecialAgreementRouter;

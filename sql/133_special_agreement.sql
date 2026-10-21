@@ -128,14 +128,15 @@ BEGIN
     IF EXISTS (SELECT 1 FROM @i WHERE max_qty IS NOT NULL AND max_qty <= 0)
         THROW 58306, 'Maximum quantity must be greater than zero when given.', 1;
 
-    -- A product can only be under one live special agreement at a time (pending or approved, dates overlapping).
+    -- The same product can be under agreements with DIFFERENT suppliers (Purchase splits the qty between them), but
+    -- not twice with the same supplier while the dates overlap.
     IF EXISTS (
         SELECT 1
         FROM @i i
         JOIN dbo.special_agreement_item it ON it.prod_sno = i.prod_sno AND it.is_active = 'Y'
         JOIN dbo.special_agreement sa ON sa.special_agreement_sno = it.special_agreement_sno
         WHERE sa.is_active = 'Y' AND sa.status IN ('P', 'A')
-          AND (@exclude_sno IS NULL OR sa.special_agreement_sno <> @exclude_sno)
+          AND sa.vendor_sno = @vendor_sno AND (@exclude_sno IS NULL OR sa.special_agreement_sno <> @exclude_sno)
           AND sa.period_start_date <= @end AND sa.period_end_date >= @start
     )
     BEGIN
@@ -146,7 +147,7 @@ BEGIN
             JOIN dbo.special_agreement sa ON sa.special_agreement_sno = it.special_agreement_sno
             JOIN dbo.product_master p ON p.prod_sno = i.prod_sno
             WHERE sa.is_active = 'Y' AND sa.status IN ('P', 'A')
-              AND (@exclude_sno IS NULL OR sa.special_agreement_sno <> @exclude_sno)
+              AND sa.vendor_sno = @vendor_sno AND (@exclude_sno IS NULL OR sa.special_agreement_sno <> @exclude_sno)
               AND sa.period_start_date <= @end AND sa.period_end_date >= @start
         );
         THROW 58307, @clash, 1;
