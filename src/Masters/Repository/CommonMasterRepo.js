@@ -45,6 +45,10 @@ class CommonMasterRepo {
             // Chart of accounts (from the Tally trial balance). AccountLedgerMaster = postable Asset/Expense
             // ledgers only, for the Product form's Account Head picker (sql/131).
             "AccountHeadMaster": "sp_nt_GetAccountHeadRecords",
+            // Stock types offered on a Product Sub Category (sql/136). Active entries only.
+            "StockTypeMaster": "sp_nt_GetStockTypeRecords",
+            // Sender bank accounts + payment file type of a Payment Run (sql/138). Org scoped by company.
+            "PaymentBankMaster": "sp_nt_GetPaymentBankRecords",
             "AccountLedgerMaster": "sp_nt_GetAccountLedgerOptions"
         };
 
@@ -76,7 +80,9 @@ class CommonMasterRepo {
             "ServiceTypeMaster": "sp_nt_CreateServiceTypeRecords",
             "ServiceMaster": "sp_nt_CreateServiceRecords",
             "RecurrenceCadenceMaster": "sp_nt_CreateRecurrenceCadenceRecords",
-            "AccountHeadMaster": "sp_nt_CreateAccountHeadRecords"
+            "AccountHeadMaster": "sp_nt_CreateAccountHeadRecords",
+            "StockTypeMaster": "sp_nt_CreateStockTypeRecords",
+            "PaymentBankMaster": "sp_nt_CreatePaymentBankRecords"
         };
 
         // lowercase keys: updateCommonMaster/deleteCommonMaster look up with
@@ -110,6 +116,8 @@ class CommonMasterRepo {
             'servicemaster': 'sp_nt_UpdateServiceRecords',
             'recurrencecadencemaster': 'sp_nt_UpdateRecurrenceCadenceRecords',
             'accountheadmaster': 'sp_nt_UpdateAccountHeadRecords',
+            'stocktypemaster': 'sp_nt_UpdateStockTypeRecords',
+            'paymentbankmaster': 'sp_nt_UpdatePaymentBankRecords',
         };
 
         this.deleteProcedureMap = {
@@ -139,6 +147,8 @@ class CommonMasterRepo {
             'servicemaster': 'sp_nt_DeleteServiceRecords',
             'recurrencecadencemaster': 'sp_nt_DeleteRecurrenceCadenceRecords',
             'accountheadmaster': 'sp_nt_DeleteAccountHeadRecords',
+            'stocktypemaster': 'sp_nt_DeleteStockTypeRecords',
+            'paymentbankmaster': 'sp_nt_DeletePaymentBankRecords',
         };
         this.fieldMappings = {
         'CompanyMaster': { label: 'com_name', value: 'com_sno' },
@@ -183,6 +193,10 @@ class CommonMasterRepo {
         // Parent picker on the Account Head master lists the whole chart; the Product form uses AccountLedgerMaster (ledgers only).
         'AccountHeadMaster': { label: 'head_path', value: 'head_sno', extra: ['head_code', 'head_type', 'is_group'] },
         'AccountLedgerMaster': { label: 'head_label', value: 'head_sno', extra: ['head_code', 'head_type'] },
+        // value = stock_type_name (not the sno) — subcategory_master.subcat_stock_type stores the name,
+        // and the GRN/inventory/asset procs compare that string directly (sql/136).
+        'StockTypeMaster': { label: 'stock_type_name', value: 'stock_type_name', extra: ['stock_type_desc', 'is_system'] },
+        'PaymentBankMaster': { label: 'profile_name', value: 'payment_bank_sno', extra: ['com_sno', 'bank_name', 'is_default'] },
     };
 
     }
@@ -194,6 +208,8 @@ class CommonMasterRepo {
     // as before. See backend-stpl/sql/79_masters_hierarchy_scope.sql.
     static ORG_SCOPED_MASTER_FIELDS = new Set([
         'CompanyMaster', 'DivisionMaster', 'BranchMaster', 'DeptMaster', 'WarehouseLocationMaster',
+        // a company's bank accounts are only listed to users who may see that company (sql/138)
+        'PaymentBankMaster',
     ]);
 
     async getAllCommonMasters(masterField, hierarchyJson) {

@@ -2,6 +2,9 @@ import mssql from "mssql";
 import { initializeDatabase } from "../Dbconnections/Dbconnections.js";
 import { getHierarchyJson, orgRoomsForHierarchy } from "./hierarchyScope.js";
 
+// Any of the payment screens (entry, approval, run) puts a user in the payment rooms of their own hierarchy.
+const PAYMENT_SCREENS = new Set(["paymentpage", "paymentapprovalscreen", "paymentrunpage"]);
+
 export async function paymentSocketRooms(user) {
   const normalized = Array.isArray(user) ? user[0] : user;
   const identity = normalized?.ecno ?? normalized?.login_id;
@@ -11,7 +14,7 @@ export async function paymentSocketRooms(user) {
     .input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify({ ecno: identity }))
     .execute("sp_nt_GetUserScreensAndPermissionsJson");
   const canView = (result.recordset ?? []).some((row) =>
-    String(row.comp ?? row.screen_comp).toLowerCase() === "paymentpage" && Number(row.permission_id) === 2);
+    PAYMENT_SCREENS.has(String(row.comp ?? row.screen_comp).toLowerCase()) && Number(row.permission_id) === 2);
   if (!canView) return [];
   const hierarchy = (await getHierarchyJson(identity)).filter((h) =>
     !(h.div_sno == null && (h.brn_sno != null || h.dept_sno != null)) && !(h.brn_sno == null && h.dept_sno != null));
