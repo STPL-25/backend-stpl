@@ -78,6 +78,27 @@ class SignUpControllers {
         res.json({ success: true, data: req.user });
     }
 
+    // User Home Org screen: each user's fixed company/division/branch/department, separate from Role Approval scope.
+    static async getHomeOrgList(req, res) {
+        try {
+            const data = await SignUpService.getHomeOrgList();
+            res.status(200).json({ success: true, data: data.users, departments: data.departments });
+        } catch (error) {
+            res.status(500).json({ success: false, message: error.message });
+        }
+    }
+
+    static async setHomeOrg(req, res) {
+        try {
+            const data = await SignUpService.setHomeOrg(req.body);
+            res.status(200).json({ success: true, message: "Home organisation saved. The user must log in again to pick it up.", data });
+        } catch (error) {
+            // the SP throws 593xx with a message meant to be shown as it is
+            const msg = String(error.message || "").replace(/^Database error:\s*/, "");
+            res.status(400).json({ success: false, message: msg });
+        }
+    }
+
     static async getAllUsers(req, res) {
         try {
             const result = await SignUpService.getAllUsers();

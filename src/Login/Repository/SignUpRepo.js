@@ -112,6 +112,16 @@ class SignUpRepo {
       throw new Error(`Database error: ${error.message}`);
     }
   }
+  async getHomeOrgList() {
+    const result = await mssqlPool.request().execute("sp_nt_GetUserHomeOrgList");
+    return { users: result.recordsets[0] ?? [], departments: result.recordsets[1] ?? [] };
+  }
+
+  async setHomeOrg({ ecno, dept_sno }) {
+    const result = await this.executeStoredProcedure("sp_nt_SetUserHomeOrg", { ecno, dept_sno });
+    return result?.[0] ?? null;
+  }
+
   async getAllUsers() {
     try {
       const storedProcedure = this.storedProcedureMap["get_all_users_sign_up"];

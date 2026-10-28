@@ -196,7 +196,7 @@ class CommonMasterRepo {
         // value = stock_type_name (not the sno) — subcategory_master.subcat_stock_type stores the name,
         // and the GRN/inventory/asset procs compare that string directly (sql/136).
         'StockTypeMaster': { label: 'stock_type_name', value: 'stock_type_name', extra: ['stock_type_desc', 'is_system'] },
-        'PaymentBankMaster': { label: 'profile_name', value: 'payment_bank_sno', extra: ['com_sno', 'bank_name', 'is_default'] },
+        'PaymentBankMaster': { label: 'profile_name', value: 'payment_bank_sno', extra: ['com_sno', 'div_sno', 'brn_sno', 'bank_name', 'file_code', 'is_default'] },
     };
 
     }

@@ -13,12 +13,17 @@ class ServiceGrnRepository {
       const result = await request.execute(procedureName);
       return result.recordset;
     } catch (error) {
-      throw new Error(`Database error: ${error.message}`);
+      // the SPs THROW readable business errors (no workflow, not your approval, ...): keep the bare message
+      throw new Error(error.message);
     }
   }
 
   async createServiceGrn(payload) {
     return this.executeJsonProcedure("sp_nt_CreateServiceGrn", payload);
+  }
+
+  async approveServiceGrn(payload) {
+    return this.executeJsonProcedure("sp_nt_ApproveServiceGrn", payload);
   }
 
   async getPendingServiceGrnPOs(filters = {}) {

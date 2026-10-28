@@ -7,21 +7,30 @@ import CommonMasterServices from "../Services/CommonMasterServices.js";
 
 const commonMasterRouter = express.Router();
 
-// A company's bank accounts (PaymentBankMaster, sql/138) are readable AND writable only inside the caller's allowed companies.
-// The other masters scope reads only; for bank accounts a write by id, or into another company, is refused here.
+// PaymentBankMaster rows are readable AND writable only inside the caller's allowed company/division/branch scope.
+// The other masters scope reads only; for bank accounts a write by id, or into another org scope, is refused here.
 const scopePaymentBankWrites = async (req, res, next) => {
   if (req.params.masterField !== "PaymentBankMaster") return next();
   try {
-    const allowed = new Set((req.hierarchyJson ?? []).map((h) => Number(h.com_sno)));
+    const hierarchy = req.hierarchyJson ?? [];
+    const isAllowed = (row) => hierarchy.some((h) =>
+      Number(h.com_sno) === Number(row?.com_sno)
+      && (h.div_sno == null || Number(h.div_sno) === Number(row?.div_sno))
+      && (h.brn_sno == null || Number(h.brn_sno) === Number(row?.brn_sno)));
     const rows = Array.isArray(req.body) ? req.body : req.body ? [req.body] : [];
-    if (rows.some((r) => r?.com_sno != null && r.com_sno !== "" && !allowed.has(Number(r.com_sno)))) {
-      return res.status(403).json({ success: false, error: "You do not have access to that company." });
-    }
+    let current = null;
     if (req.params.id) {
       const visible = await CommonMasterServices.getAllCommonMasters("PaymentBankMaster", req.hierarchyJson);
-      if (!visible.some((v) => String(v.payment_bank_sno) === String(req.params.id))) {
+      current = visible.find((v) => String(v.payment_bank_sno) === String(req.params.id));
+      if (!current) {
         return res.status(403).json({ success: false, error: "You do not have access to that bank account." });
       }
+    }
+    if (rows.some((r) => {
+      const target = current ? { ...current, ...r } : r;
+      return target?.com_sno != null && target.com_sno !== "" && !isAllowed(target);
+    })) {
+      return res.status(403).json({ success: false, error: "You do not have access to that company, division and branch." });
     }
     next();
   } catch (error) {

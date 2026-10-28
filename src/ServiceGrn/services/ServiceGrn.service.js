@@ -7,12 +7,17 @@ class ServiceGrnService {
     return this.repo.createServiceGrn(payload);
   }
 
-  static async getPendingServiceGrnPOs(filters) {
-    return this.repo.getPendingServiceGrnPOs(filters);
+  static async approveServiceGrn(payload) {
+    return this.repo.approveServiceGrn(payload);
   }
 
-  static async getServiceGrns(filters) {
-    return this.repo.getServiceGrns(filters);
+  // hierarchy = the caller's allowed org rows ([] = nothing); ecno only decides which GRNs are "mine to act on"
+  static async getPendingServiceGrnPOs({ hierarchy }) {
+    return this.repo.getPendingServiceGrnPOs({ hierarchy });
+  }
+
+  static async getServiceGrns({ hierarchy, ecno }) {
+    return this.repo.getServiceGrns({ hierarchy, ecno });
   }
 }
 

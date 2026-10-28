@@ -28,6 +28,16 @@ class SignUpService {
     return await this.signUpRepository.logInUser("log_in", ecno, sign_up_pass);
   }
 
+  static async getHomeOrgList() {
+    return await this.signUpRepository.getHomeOrgList();
+  }
+
+  static async setHomeOrg(body) {
+    if (!body?.ecno) throw new Error("ECNO is required");
+    if (!body?.dept_sno) throw new Error("Pick a department.");
+    return await this.signUpRepository.setHomeOrg(body);
+  }
+
   static async getAllUsers() {
     return await this.signUpRepository.getAllUsers();
   }

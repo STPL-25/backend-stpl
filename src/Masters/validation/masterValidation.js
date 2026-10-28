@@ -68,7 +68,7 @@ const REQUIRED_FIELDS = {
   AccountHeadMaster: ["head_name", "head_type"],
   StockTypeMaster: ["stock_type_name"],
   // file_type is left out on purpose: blank means the only type today (BANK_UPLOAD) - the stored procedure fills it in (sql/138).
-  PaymentBankMaster: ["com_sno", "profile_name", "bank_name", "ac_holder_name", "ac_number", "ifsc", "file_prefix", "client_code"],
+  PaymentBankMaster: ["com_sno", "div_sno", "brn_sno", "profile_name", "bank_name", "ac_holder_name", "ac_number", "ifsc", "file_prefix", "client_code", "file_code"],
 };
 
 // Fields that are only mandatory conditionally on another field's value.

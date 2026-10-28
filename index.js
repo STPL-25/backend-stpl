@@ -245,6 +245,14 @@ io.on("connection", (socket) => {
         socket.leave("service_po:approval");
     });
 
+    socket.on("join-service-grn", () => {
+        socket.join("service_grn:updates");
+    });
+
+    socket.on("leave-service-grn", () => {
+        socket.leave("service_grn:updates");
+    });
+
 
 
     socket.on("join-service-vendor-kyc-approval", () => {

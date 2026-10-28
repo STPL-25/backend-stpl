@@ -124,11 +124,14 @@ class KYCServices {
   // Creates/resets the supplier portal login and emails the credentials.
   // Never throws: an email failure must not roll back an approval that has
   // already been committed by the stored procedure.
+  // Result: { loginCreated, emailSent, login_email?, reason? } - the approval screen shows a warning when either is false, because
+  // the supplier then has a code but cannot sign in (no login) or was never told the temporary password (login, no e-mail).
   static async sendSupplierInvite(kyc_basic_info_sno, created_by) {
+    let loginCreated = false;
     try {
       const contact = await this.kycRepository.getSupplierContact(kyc_basic_info_sno);
       if (!contact?.email) {
-        return { emailSent: false, reason: "No email on the KYC record" };
+        return { loginCreated, emailSent: false, reason: "No email on the KYC record - no supplier portal login was created" };
       }
 
       const tempPassword = generateTempPassword();
@@ -140,6 +143,7 @@ class KYCServices {
         password_hash,
         created_by,
       });
+      loginCreated = true;
 
       const mailResult = await sendSupplierInviteEmail({
         to: contact.email,
@@ -149,10 +153,16 @@ class KYCServices {
         portalUrl: SUPPLIER_PORTAL_URL,
       });
 
-      return { emailSent: mailResult.sent, login_email: contact.email };
+      return {
+        loginCreated, emailSent: mailResult.sent, login_email: contact.email,
+        ...(mailResult.sent ? {} : { reason: `The login was created but the invite e-mail was not sent (${mailResult.reason ?? "mail service unavailable"}) - the supplier does not have the temporary password` }),
+      };
     } catch (error) {
-      console.error("Supplier invite failed:", error.message);
-      return { emailSent: false, reason: error.message };
+      console.error(`Supplier invite failed for KYC ${kyc_basic_info_sno}:`, error.message);
+      return {
+        loginCreated, emailSent: false,
+        reason: loginCreated ? error.message : `No supplier portal login was created: ${error.message}`,
+      };
     }
   }
 
