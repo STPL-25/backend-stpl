@@ -221,6 +221,49 @@ async function runApprovalNoticeSweep(io) {
   io?.to("service_po:approval").emit("service_po:approval:updated", { action: "notice" });
 }
 
+// sql/148: once a stage has waited past its cut-off (escalation_hours) the alternate may approve as
+// well; tell each alternate once per stage visit. The item stays with the primary approver too.
+async function runAlternateApproverNoticeSweep(io) {
+  let rows;
+  try {
+    rows = await repo.claimAlternateApproverNotices();
+  } catch (error) {
+    console.error("Alternate approver sweep failed to claim notices:", error.message);
+    return;
+  }
+  if (!rows?.length) return;
+
+  for (const r of rows) {
+    const hours = Number(r.escalation_hours);
+    const waited = `${hours} hour${hours === 1 ? "" : "s"}`;
+    const result = await createInAppNotification({
+      ecno: r.recipient_ecno,
+      type: "approval",
+      title: "You can approve as alternate",
+      message: `${r.label}${r.stage_name ? ` (${r.stage_name})` : ""} has been waiting with ${r.primary_name || r.primary_ecno} for more than ${waited}. As the alternate approver you can approve it now.`,
+      data: {
+        kind: "alternate_can_act",
+        entity_type: r.entity_type,
+        entity_id: r.entity_id,
+        primary_ecno: r.primary_ecno,
+        screen: r.screen,
+      },
+    });
+    if (!result.sent) console.error(`Alternate notice ${r.notice_sno} to ${r.recipient_ecno} failed: ${result.reason}`);
+    await repo
+      .markAlternateApproverNoticeSent({
+        notice_sno: r.notice_sno,
+        status: result.sent ? "SENT" : "FAILED",
+        error_message: result.sent ? null : result.reason,
+      })
+      .catch((err) => console.error(`Could not mark alternate notice ${r.notice_sno}:`, err.message));
+  }
+  // Open PR approval lists refetch, so the item shows up for the alternate without a reload.
+  if (rows.some((r) => r.entity_type === "PurchaseRequisition")) {
+    io?.to("pr:approval").emit("pr:approval:updated", { action: "alternate_can_act" });
+  }
+}
+
 // The 60s sweep is the safety net; anything that just handed an item to an approver (submit,
 // approve onward, forward, send back) calls this so the bell rings within a second or two instead
 // of up to a minute later. Safe to call any time — the SP claims each notice exactly once.
@@ -297,6 +340,7 @@ function startServiceAgreementScheduledJobs(io) {
     runServicePoAlertSweep(io).catch((error) => console.error("Service PO alert sweep crashed:", error.message));
     runApprovalNoticeSweep(io).catch((error) => console.error("Approval notice sweep crashed:", error.message));
     runApproverChangeNoticeSweep(io).catch((error) => console.error("Approver-change sweep crashed:", error.message));
+    runAlternateApproverNoticeSweep(io).catch((error) => console.error("Alternate approver sweep crashed:", error.message));
   };
 
   setTimeout(sweep, STARTUP_DELAY_MS);
@@ -304,4 +348,4 @@ function startServiceAgreementScheduledJobs(io) {
   console.log(`Service Agreement scheduled jobs started (sweep every ${SWEEP_INTERVAL_MS}ms, first run in ${STARTUP_DELAY_MS}ms).`);
 }
 
-export { notifyApproversNow, startServiceAgreementScheduledJobs, runRecurringPoSweep, runAgreementExpirySweep, runAgreementNotificationSweep, runServicePoAlertSweep, runApprovalNoticeSweep, runApproverChangeNoticeSweep };
+export { notifyApproversNow, startServiceAgreementScheduledJobs, runRecurringPoSweep, runAgreementExpirySweep, runAgreementNotificationSweep, runServicePoAlertSweep, runApprovalNoticeSweep, runApproverChangeNoticeSweep, runAlternateApproverNoticeSweep };

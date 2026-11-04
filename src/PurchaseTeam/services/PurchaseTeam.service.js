@@ -27,6 +27,10 @@ class PurchaseTeamService {
     return this.repo.createSupplierQuotation(quotationData);
   }
 
+  static async updateSupplierQuotation(quotationData) {
+    return this.repo.updateSupplierQuotation(quotationData);
+  }
+
   static async getSupplierQuotations(prBasicSno,pr_no) {
     return this.repo.getSupplierQuotations(prBasicSno,pr_no);
   }

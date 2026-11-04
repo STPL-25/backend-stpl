@@ -1,0 +1,14 @@
+[
+ {
+  "instance_id": 4,
+  "stages_json": "[{\"approver_ecno\":\"KTM1006\",\"stage\":\"Manager Approval\",\"required_approvals\":\"1\",\"is_mandatory\":\"Y\",\"escalation_hours\":\"24\",\"approver_condition\":\"\",\"next_approver_ecno\":\"\",\"can_forward\":\"Y\",\"can_backward\":\"N\",\"can_edit_data\":\"N\"}]"
+ },
+ {
+  "instance_id": 5,
+  "stages_json": "[{\"approver_ecno\":\"KTM1006\",\"stage\":\"Manager Approval\",\"required_approvals\":\"1\",\"is_mandatory\":\"Y\",\"escalation_hours\":\"24\",\"approver_condition\":\"\",\"next_approver_ecno\":\"\",\"can_forward\":\"Y\",\"can_backward\":\"N\",\"can_edit_data\":\"N\"}]"
+ },
+ {
+  "instance_id": 222,
+  "stages_json": "[{\"approver_ecno\":\"KTM1006\",\"stage\":\"Manager Approval\",\"required_approvals\":\"1\",\"is_mandatory\":\"Y\",\"escalation_hours\":\"24\",\"approver_condition\":\"\",\"next_approver_ecno\":\"KTM1004\",\"can_forward\":\"Y\",\"can_backward\":\"Y\",\"can_edit_data\":\"Y\",\"alternates\":[\"KTM1004\"]},{\"approver_ecno\":\"KTM1004\",\"stage\":\"Admin Approval\",\"required_approvals\":\"1\",\"is_mandatory\":\"Y\",\"escalation_hours\":\"1\",\"approver_condition\":\"\",\"next_approver_ecno\":\"0\",\"can_forward\":\"Y\",\"can_backward\":\"Y\",\"can_edit_data\":\"Y\",\"alternates\":[\"ED001\"]}]"
+ }
+]

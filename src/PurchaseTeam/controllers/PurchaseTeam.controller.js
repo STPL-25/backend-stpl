@@ -85,6 +85,48 @@ class PurchaseTeamController {
     }
   }
 
+  static async updateSupplierQuotation(req, res) {
+    try {
+      if (req.is("multipart/form-data")) {
+        try {
+          decryptFormPayload(req);
+        } catch {
+          return res.status(400).json({ success: false, error: "Invalid encrypted form payload." });
+        }
+      }
+
+      const user = getAuthUser(req);
+      const ecno = req.user_ecno ?? user?.ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+      if (!req.body.sq_basic_sno) return res.status(400).json({ success: false, error: "sq_basic_sno required" });
+
+      // A new document replaces the stored one; no file keeps the existing one.
+      let quotationFileUrl = "";
+      if (Array.isArray(req.files) && req.files.length) {
+        const quotationFile =
+          req.files.find((f) => f.fieldname === "quotation_file") || req.files[0];
+        if (quotationFile) {
+          quotationFileUrl = await ftpUploader.uploadFileIfExists(
+            quotationFile,
+            "NON_TRADE_DATAS/QUOTATION_DATAS"
+          );
+        }
+      }
+
+      const data = await PurchaseTeamService.updateSupplierQuotation({
+        ...req.body,
+        sq_quotation_file: quotationFileUrl,
+        modified_by: ecno,
+      });
+      const prSno = req.body.pr_basic_sno;
+      if (prSno) await invalidateCache(req.redisClient, `pt:quotations:${prSno}`);
+      res.json({ success: true, data, message: "Supplier quotation updated" });
+    } catch (error) {
+      console.log(error);
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   static async getSupplierQuotations(req, res) {
     try {
       let { prBasicSno ,pr_no} = req.params;

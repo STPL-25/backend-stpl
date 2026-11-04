@@ -49,6 +49,9 @@ class CommonMasterRepo {
             "StockTypeMaster": "sp_nt_GetStockTypeRecords",
             // Sender bank accounts + payment file type of a Payment Run (sql/138). Org scoped by company.
             "PaymentBankMaster": "sp_nt_GetPaymentBankRecords",
+            // Layout of the payment file, bank by bank (sql/149): the format and its columns.
+            "BankFileFormatMaster": "sp_nt_GetBankFileFormatRecords",
+            "BankFileFormatColumnMaster": "sp_nt_GetBankFileFormatColumnRecords",
             "AccountLedgerMaster": "sp_nt_GetAccountLedgerOptions"
         };
 
@@ -82,7 +85,9 @@ class CommonMasterRepo {
             "RecurrenceCadenceMaster": "sp_nt_CreateRecurrenceCadenceRecords",
             "AccountHeadMaster": "sp_nt_CreateAccountHeadRecords",
             "StockTypeMaster": "sp_nt_CreateStockTypeRecords",
-            "PaymentBankMaster": "sp_nt_CreatePaymentBankRecords"
+            "PaymentBankMaster": "sp_nt_CreatePaymentBankRecords",
+            "BankFileFormatMaster": "sp_nt_CreateBankFileFormatRecords",
+            "BankFileFormatColumnMaster": "sp_nt_CreateBankFileFormatColumnRecords"
         };
 
         // lowercase keys: updateCommonMaster/deleteCommonMaster look up with
@@ -118,6 +123,8 @@ class CommonMasterRepo {
             'accountheadmaster': 'sp_nt_UpdateAccountHeadRecords',
             'stocktypemaster': 'sp_nt_UpdateStockTypeRecords',
             'paymentbankmaster': 'sp_nt_UpdatePaymentBankRecords',
+            'bankfileformatmaster': 'sp_nt_UpdateBankFileFormatRecords',
+            'bankfileformatcolumnmaster': 'sp_nt_UpdateBankFileFormatColumnRecords',
         };
 
         this.deleteProcedureMap = {
@@ -149,6 +156,8 @@ class CommonMasterRepo {
             'accountheadmaster': 'sp_nt_DeleteAccountHeadRecords',
             'stocktypemaster': 'sp_nt_DeleteStockTypeRecords',
             'paymentbankmaster': 'sp_nt_DeletePaymentBankRecords',
+            'bankfileformatmaster': 'sp_nt_DeleteBankFileFormatRecords',
+            'bankfileformatcolumnmaster': 'sp_nt_DeleteBankFileFormatColumnRecords',
         };
         this.fieldMappings = {
         'CompanyMaster': { label: 'com_name', value: 'com_sno' },
@@ -197,6 +206,8 @@ class CommonMasterRepo {
         // and the GRN/inventory/asset procs compare that string directly (sql/136).
         'StockTypeMaster': { label: 'stock_type_name', value: 'stock_type_name', extra: ['stock_type_desc', 'is_system'] },
         'PaymentBankMaster': { label: 'profile_name', value: 'payment_bank_sno', extra: ['com_sno', 'div_sno', 'brn_sno', 'bank_name', 'file_code', 'is_default'] },
+        // value = format_sno: the Payment Bank master stores the number (sql/149).
+        'BankFileFormatMaster': { label: 'format_name', value: 'format_sno', extra: ['delimiter', 'has_header', 'line_ending', 'quote_text'] },
     };
 
     }

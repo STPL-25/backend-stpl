@@ -56,6 +56,10 @@ class PurchaseTeamRepository {
     return this.executeStoredProcedure("sp_nt_CreateSupplierQuotation", quotationData);
   }
 
+  async updateSupplierQuotation(quotationData) {
+    return this.executeStoredProcedure("sp_nt_UpdateSupplierQuotation", quotationData);
+  }
+
   async getSupplierQuotations(prBasicSno, pr_no) {
     try {
       const request = mssqlPool.request();

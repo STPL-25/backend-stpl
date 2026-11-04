@@ -33,6 +33,27 @@ class POController {
         return res.status(400).json({ success: false, error: "comments are required when rejecting" });
       }
 
+      // sp_nt_ApproveSupplierQuotation reads a single `transfer_to_ecno` for both
+      // forward and backward; the screen sends them as forward_to / backward_to.
+      let transfer_to_ecno = null;
+      if (action === "forward" || action === "backward") {
+        const { forward_to, backward_to, transfer_to_ecno: explicitTarget } = req.body;
+        transfer_to_ecno = String((action === "forward" ? forward_to : backward_to) ?? explicitTarget ?? "").trim();
+        if (!transfer_to_ecno) {
+          return res.status(400).json({
+            success: false,
+            error: action === "forward" ? "No next approver found to forward to" : "Select an approver to send back to",
+          });
+        }
+        if (transfer_to_ecno === ecno) {
+          return res.status(400).json({ success: false, error: "You cannot transfer the quotation to yourself" });
+        }
+        const stageEcnos = (Array.isArray(approval_stages) ? approval_stages : []).map((s) => String(s?.approver_ecno ?? ""));
+        if (!stageEcnos.includes(transfer_to_ecno)) {
+          return res.status(400).json({ success: false, error: "Selected approver is not part of this approval workflow" });
+        }
+      }
+
       const data = await POService.approvePo({
         sq_basic_sno,
         quotation_ref_no,
@@ -40,6 +61,7 @@ class POController {
         comments: comments || "",
         approval_stages,
         action,
+        ...(transfer_to_ecno ? { transfer_to_ecno } : {}),
       });
       await invalidateCacheByPattern(req.redisClient, "po:list:*");
 

@@ -153,6 +153,20 @@ class ServiceAgreementRepository {
     return this.executeJsonProcedure("sp_nt_MarkApprovalNoticeSent", payload);
   }
 
+  // sql/148: alternates whose stage cut-off has passed and who haven't been told yet (PR + Payment).
+  async claimAlternateApproverNotices() {
+    try {
+      const result = await mssqlPool.request().execute("sp_nt_ClaimAlternateApproverNotices");
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  async markAlternateApproverNoticeSent(payload) {
+    return this.executeJsonProcedure("sp_nt_MarkAlternateApproverNoticeSent", payload);
+  }
+
   async markAgreementNotificationSent(payload) {
     return this.executeJsonProcedure("sp_nt_MarkAgreementNotificationSent", payload);
   }
