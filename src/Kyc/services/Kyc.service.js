@@ -81,7 +81,8 @@ class KYCServices {
   }
 
   static async getSupplierFullDetails(source, recordId) {
-    const [basic, addresses, banks, contacts, documents, verifications] =
+    // RS7 (grn sql/92) = the changes the supplier made on the portal; absent until that migration is applied.
+    const [basic, addresses, banks, contacts, documents, verifications, modifications] =
       await this.kycRepository.getSupplierFullDetails(source, recordId);
     return {
       basic: basic?.[0] ?? null,
@@ -90,7 +91,39 @@ class KYCServices {
       contacts: contacts ?? [],
       documents: documents ?? [],
       verifications: verifications ?? [],
+      // approvals (grn sql/93) is JSON text too, like old_data / new_data / files
+      modifications: (modifications ?? []).map((m) => this.#changeRow(m)),
     };
+  }
+
+  static #parseJson(text, fallback) {
+    try {
+      return text ? JSON.parse(text) : fallback;
+    } catch {
+      return fallback;
+    }
+  }
+
+  // The JSON columns of a change request, as objects.
+  static #changeRow(r) {
+    return {
+      ...r,
+      old_data: this.#parseJson(r.old_data, null),
+      new_data: this.#parseJson(r.new_data, null),
+      files: this.#parseJson(r.files, []),
+      approvals: this.#parseJson(r.approvals, []),
+    };
+  }
+
+  /** Supplier KYC change requests for one approver: { waiting (for me), history (I acted on) } - grn sql/93. */
+  static async getKycChangeApprovals(ecno) {
+    const [waiting, history] = await this.kycRepository.getKycChangeApprovals(ecno);
+    return { waiting: (waiting ?? []).map((r) => this.#changeRow(r)), history: (history ?? []).map((r) => this.#changeRow(r)) };
+  }
+
+  /** Approve / reject one request as `ecno`. Returns the procedure's row (status P / A / R, the next approver, the supplier). */
+  static actKycChange(input) {
+    return this.kycRepository.actOnKycChange(input);
   }
 
   static getPendingApprovals(ecno) {
@@ -116,6 +149,22 @@ class KYCServices {
         data.kyc_basic_info_sno,
         data.ecno
       );
+    }
+
+    // Rejected: e-mail the supplier a private link to correct the KYC and send it again (sql/155). Never throws - the rejection
+    // is already committed; the approval screen shows row.resubmit_link when the link or its e-mail did not work.
+    if (row?.result === "SUCCESS" && data.action === "reject") {
+      try {
+        const { default: KycResubmitService } = await import("../../KycResubmit/KycResubmit.service.js");
+        row.resubmit_link = await KycResubmitService.issueAndSend({
+          kycId: data.kyc_basic_info_sno,
+          reason: data.comments,
+          createdBy: data.ecno,
+        });
+      } catch (error) {
+        console.error(`[kyc-resubmit] could not start for KYC ${data.kyc_basic_info_sno}:`, error.message);
+        row.resubmit_link = { issued: false, emailSent: false, reason: "The correction link could not be created." };
+      }
     }
 
     return outcome;

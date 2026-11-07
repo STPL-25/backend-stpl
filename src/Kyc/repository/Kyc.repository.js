@@ -72,6 +72,41 @@ class KYCRepo {
     }
   }
 
+  // ── Supplier KYC change requests (grn sql/93) ───────────────────────────────────────────────────────
+  // Errors 58601-58630 are written for the person who sees them ("This request is not waiting for you."), so they pass through
+  // as-is (userFacing -> the controller answers 400) instead of being wrapped as "Database error: ...".
+  #changeError(error) {
+    if (error?.number >= 58600 && error?.number < 58700) {
+      const businessError = new Error(error.message);
+      businessError.userFacing = true;
+      return businessError;
+    }
+    return new Error(`Database error: ${error.message}`);
+  }
+
+  // [waiting for me, decided / in progress by me]
+  async getKycChangeApprovals(ecno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify({ ecno }));
+      const result = await request.execute("sp_nt_GetKycChangeApprovals");
+      return result.recordsets;
+    } catch (error) {
+      throw this.#changeError(error);
+    }
+  }
+
+  async actOnKycChange({ kyc_modified_sno, ecno, action, note }) {
+    try {
+      const request = mssqlPool.request();
+      request.input("jsonInput", mssql.NVarChar(mssql.MAX), JSON.stringify({ kyc_modified_sno, ecno, action, note }));
+      const result = await request.execute("sp_nt_KycChangeAct");
+      return result.recordset[0];
+    } catch (error) {
+      throw this.#changeError(error);
+    }
+  }
+
   async getPendingApprovals(ecno) {
     try {
       console.log("Fetching pending approvals for ECNO:", ecno);

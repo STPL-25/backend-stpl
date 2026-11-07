@@ -39,6 +39,26 @@ async function attachSignedDocs(repo, rows) {
   });
 }
 
+// Statutory agreements (sql/157): the block that says where on Statutory Payments each due lands. Merged in here, like the
+// signed copies, so the big list procs stay untouched. Before sql/157 is applied the procedure is missing - the list still loads.
+async function attachStatutoryDues(repo, rows) {
+  if (!rows.some((r) => r.service_type_code === "STATUTORY")) return rows;
+  let dues = [];
+  try {
+    dues = await repo.getStatutoryDues();
+  } catch (error) {
+    console.error("Statutory due details could not be read (is sql/157 applied?):", error.message);
+    return rows;
+  }
+  const byAgreement = new Map(dues.map((d) => [d.agreement_sno, d]));
+  return rows.map((r) => {
+    const d = byAgreement.get(r.agreement_sno);
+    if (!d) return r;
+    const { agreement_sno: _sno, ...statutory_due } = d;
+    return { ...r, statutory_due };
+  });
+}
+
 class ServiceAgreementService {
   static repo = new ServiceAgreementRepository();
 
@@ -56,12 +76,12 @@ class ServiceAgreementService {
 
   static async getServiceAgreements(filters) {
     const rows = await this.repo.getServiceAgreements(filters);
-    return attachSignedDocs(this.repo, rows.map(withParsedAgreementColumns));
+    return attachStatutoryDues(this.repo, await attachSignedDocs(this.repo, rows.map(withParsedAgreementColumns)));
   }
 
   static async getServiceAgreementsForApproval(ecno) {
     const rows = await this.repo.getServiceAgreementsForApproval(ecno);
-    return attachSignedDocs(this.repo, rows.map(withParsedAgreementColumns));
+    return attachStatutoryDues(this.repo, await attachSignedDocs(this.repo, rows.map(withParsedAgreementColumns)));
   }
 
   static async uploadSignedDoc(payload) {

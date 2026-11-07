@@ -33,12 +33,12 @@ async function callEmailApi(path, body) {
  * internalOrJwtAuth middleware). Returns { sent, reason?, notif? } so the
  * caller can pull notif.notif_sno through to sp_nt_MarkAgreementNotificationSent.
  */
-async function createInAppNotification({ ecno, type = "info", title, message, data }) {
+async function createInAppNotification({ ecno, supplier_sno, type = "info", title, message, data }) {
   try {
     const resp = await fetch(`${NOTIFICATION_SERVICE_URL}/api/notifications`, {
       method: "POST",
       headers: { "Content-Type": "application/json", "x-internal-secret": INTERNAL_BROADCAST_SECRET },
-      body: JSON.stringify({ ecno, type, title, message, data }),
+      body: JSON.stringify({ ecno, supplier_sno, type, title, message, data }),
       signal: AbortSignal.timeout(5000),
     });
     const body = await resp.json().catch(() => ({}));
@@ -47,6 +47,17 @@ async function createInAppNotification({ ecno, type = "info", title, message, da
   } catch (err) {
     return { sent: false, reason: err.message };
   }
+}
+
+/**
+ * Bell notification inside the /Supplier portal. `supplier_sno` is the supplier's kyc_basic_info_sno
+ * (the PO's vendor_sno) - the id every supplier-facing query already scopes by. `data.view` tells the
+ * portal which screen to open ('rfq-entry' | 'workspace' | 'debit-notes' | 'payments').
+ * Best-effort like every other bell: resolves to { sent, reason? } and never throws.
+ */
+function notifySupplier({ supplier_sno, type = "info", title, message, data }) {
+  if (!supplier_sno) return Promise.resolve({ sent: false, reason: "no supplier_sno" });
+  return createInAppNotification({ supplier_sno, type, title, message, data });
 }
 
 function sendSupplierInviteEmail({ to, companyName, suppCode, tempPassword, portalUrl }) {
@@ -72,4 +83,18 @@ function sendPOGeneratedEmail({
   });
 }
 
-export { sendSupplierInviteEmail, sendNonStaffInviteEmail, sendPOGeneratedEmail, createInAppNotification };
+/** Request For Quotation / reminder / revision request. kind: 'request' | 'reminder' | 'revision'. */
+function sendRfqRequestEmail({
+  to, companyName, rfqNo, kind, dueDate, notes, revisionNote, buyerCompany, items, suppCode, portalUrl,
+}) {
+  return callEmailApi("rfq-request", {
+    to, companyName, rfqNo, kind, dueDate, notes, revisionNote, buyerCompany, items, suppCode, portalUrl,
+  });
+}
+
+/** The private link a supplier uses to correct a rejected KYC (sql/155). `link` is the full https URL with its token. */
+function sendKycResubmitEmail({ to, companyName, reason, link, expiresAt }) {
+  return callEmailApi("kyc-resubmit", { to, companyName, reason, link, expiresAt });
+}
+
+export { sendSupplierInviteEmail, sendNonStaffInviteEmail, sendPOGeneratedEmail, sendRfqRequestEmail, sendKycResubmitEmail, createInAppNotification, notifySupplier };

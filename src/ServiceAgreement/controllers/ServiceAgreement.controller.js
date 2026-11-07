@@ -42,6 +42,19 @@ function readSuppliers(body) {
   return { vendors };
 }
 
+// sql/157: a Statutory agreement is a government / utility due (PF, ESI, property tax ...) paid on Statutory Payments. It has
+// no supplier and the document is optional; instead it carries { kind, amount_type, payee_sno?, reference_no? }. The client
+// says which type it is filling in, only so the supplier / document checks here can be skipped - the SP decides by the
+// service's real type and re-checks everything.
+const isStatutoryForm = (body) => String(body?.agreement_type ?? "").toUpperCase() === "STATUTORY";
+function readStatutoryDue(body) {
+  const due = parseJsonField(body.statutory_due, "statutory_due");
+  if (!due || typeof due !== "object" || Array.isArray(due)) {
+    return { error: "Choose where it is paid on Statutory Payments (Others or GST) and whether the amount is Fixed or Unfixed" };
+  }
+  return { statutory_due: due };
+}
+
 class ServiceAgreementController {
   static async createServiceAgreement(req, res) {
     try {
@@ -58,8 +71,12 @@ class ServiceAgreementController {
       if (!com_sno || !div_sno || !brn_sno || !dept_sno || !service_sno) {
         return res.status(400).json({ success: false, error: "com_sno, div_sno, brn_sno, dept_sno and service_sno are required" });
       }
-      const { vendors, error: supplierError } = readSuppliers(req.body);
+      const statutory = isStatutoryForm(req.body);
+      const { vendors, error: supplierError } = statutory ? { vendors: undefined } : readSuppliers(req.body);
       if (supplierError) return res.status(400).json({ success: false, error: supplierError });
+      const { statutory_due, error: dueError } = statutory ? readStatutoryDue(req.body) : {};
+      if (dueError) return res.status(400).json({ success: false, error: dueError });
+      if (statutory) qty = qty || 1;
       if (!qty || !rate_amount) {
         return res.status(400).json({ success: false, error: "qty and rate_amount are required (an approximate rate is fine for an Unfixed agreement)" });
       }
@@ -72,7 +89,7 @@ class ServiceAgreementController {
 
       // Upload the agreement/contract document to FTP. Required — an
       // agreement can't be submitted without one (sp_nt_CreateServiceAgreement
-      // THROWs 58105 otherwise).
+      // THROWs 58105 otherwise) — except a Statutory due, where it is optional.
       let agreement_doc_url = "";
       if (Array.isArray(req.files) && req.files.length) {
         const doc = req.files.find((f) => f.fieldname === "agreement_document") || req.files[0];
@@ -80,12 +97,12 @@ class ServiceAgreementController {
           agreement_doc_url = await ftpUploader.uploadFileIfExists(doc, AGREEMENT_DOC_SUBDIRECTORY);
         }
       }
-      if (!agreement_doc_url) {
+      if (!agreement_doc_url && !statutory) {
         return res.status(400).json({ success: false, error: "Agreement document upload failed or was not provided" });
       }
 
       const data = await ServiceAgreementService.createServiceAgreement({
-        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno, vendors,
+        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno, vendors, statutory_due,
         qty, rate_amount, rate_uom_sno, recurrence_cadence_sno,
         po_generation_day, notify_days_before,
         period_start_date, period_end_date, remarks, terms_conditions,
@@ -133,8 +150,12 @@ class ServiceAgreementController {
       if (!com_sno || !div_sno || !brn_sno || !dept_sno || !service_sno) {
         return res.status(400).json({ success: false, error: "com_sno, div_sno, brn_sno, dept_sno and service_sno are required" });
       }
-      const { vendors, error: supplierError } = readSuppliers(req.body);
+      const statutory = isStatutoryForm(req.body);
+      const { vendors, error: supplierError } = statutory ? { vendors: undefined } : readSuppliers(req.body);
       if (supplierError) return res.status(400).json({ success: false, error: supplierError });
+      const { statutory_due, error: dueError } = statutory ? readStatutoryDue(req.body) : {};
+      if (dueError) return res.status(400).json({ success: false, error: dueError });
+      if (statutory) qty = qty || 1;
       if (!qty || !rate_amount) {
         return res.status(400).json({ success: false, error: "qty and rate_amount are required" });
       }
@@ -149,13 +170,13 @@ class ServiceAgreementController {
           agreement_doc_url = await ftpUploader.uploadFileIfExists(doc, AGREEMENT_DOC_SUBDIRECTORY);
         }
       }
-      if (!agreement_doc_url) {
+      if (!agreement_doc_url && !statutory) {
         return res.status(400).json({ success: false, error: "Agreement document is required (upload a new one, or keep the existing one)" });
       }
 
       const data = await ServiceAgreementService.updateServiceAgreement({
         agreement_sno,
-        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno, vendors,
+        com_sno, div_sno, brn_sno, dept_sno, service_sno, vendor_sno, vendors, statutory_due,
         qty, rate_amount, rate_uom_sno, recurrence_cadence_sno,
         po_generation_day, notify_days_before,
         period_start_date, period_end_date, remarks, terms_conditions,

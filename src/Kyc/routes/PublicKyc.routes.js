@@ -2,6 +2,7 @@ import express from "express";
 import KycController from "../controllers/Kyc.controller.js";
 import { upload } from "../../Utils/ImagesUpload/ImgUpload.js";
 import VerifyController from "../../KycVerification/KycVerification.controller.js";
+import PublicKycResubmitRouter from "../../KycResubmit/KycResubmit.routes.js";
 
 // Public, unauthenticated counterpart to Kyc.routes.js — reachable by a
 // supplier who has no staff login at all. Mounted WITHOUT verifyJWT in
@@ -32,5 +33,7 @@ PublicKycRouter.post("/verify_bank_account", limitLookups, VerifyController.veri
 PublicKycRouter.post("/verify_ifsc", limitLookups, VerifyController.verifyIfsc);
 PublicKycRouter.post("/check_duplicate", limitLookups, VerifyController.checkDuplicate);
 PublicKycRouter.post("/create_kyc_records", upload.any(), KycController.createKYCRecord);
+// A supplier whose KYC was rejected corrects it through the private link we e-mail (sql/155) - /api/public_kyc/resubmit/*
+PublicKycRouter.use("/resubmit", PublicKycResubmitRouter);
 
 export default PublicKycRouter;

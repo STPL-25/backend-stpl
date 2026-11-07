@@ -11,6 +11,10 @@ class PRService {
     return this.PRRepository.createVendorDrivenPrRecords(prData);
   }
 
+  static async getWorkflowDepartments(variant) {
+    return this.PRRepository.getWorkflowDepartments(variant);
+  }
+
   static async getPrRecords(ecno, hierarchyJson) {
     return this.PRRepository.getPrRecords(ecno, hierarchyJson);
   }

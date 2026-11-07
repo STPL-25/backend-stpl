@@ -5,6 +5,7 @@ import { invalidateCache } from "../../Middleware/redisCache.js";
 import { decryptFormPayload } from "../../Middleware/payloadCrypto.js";
 import { validateKycCreate } from "../validation/kycValidation.js";
 import CommonMasterServices from "../../Masters/Services/CommonMasterServices.js";
+import { createInAppNotification, notifySupplier } from "../../Utils/Notify/notifyClient.js";
 
 // Only these masters are exposed to anonymous /api/public_kyc callers —
 // the underlying getRequiredMasterForOptions is otherwise unrestricted
@@ -117,6 +118,80 @@ class KYCControllers {
       res.json({ success: true, data, message: `KYC ${action === "approve" ? "approved" : "rejected"} successfully` });
     } catch (error) {
       res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
+  // ── Supplier KYC change requests (grn sql/93) ─────────────────────────────────────────────────────
+  static async getKycChangeRequests(req, res) {
+    try {
+      // req.user_ecno falls back to login_id for non-staff sessions, which have no ecno
+      const ecno = req.user_ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+      const data = await KYCServices.getKycChangeApprovals(ecno);
+      res.json({ success: true, data, count: data.waiting.length });
+    } catch (error) {
+      res.status(error.userFacing ? 400 : 500).json({ success: false, error: error.message });
+    }
+  }
+
+  static async actKycChangeRequest(req, res) {
+    try {
+      // The approver is always the authenticated session's ecno, never a client-supplied value.
+      const ecno = req.user_ecno;
+      if (!ecno) return res.status(401).json({ success: false, error: "Unauthorized" });
+
+      const kyc_modified_sno = Number(req.body?.kyc_modified_sno);
+      const action = req.body?.action;
+      const note = String(req.body?.note ?? "").trim();
+      if (!Number.isInteger(kyc_modified_sno) || kyc_modified_sno <= 0) {
+        return res.status(400).json({ success: false, error: "kyc_modified_sno is required" });
+      }
+      if (!["approve", "reject"].includes(action)) {
+        return res.status(400).json({ success: false, error: "action must be 'approve' or 'reject'" });
+      }
+      if (action === "reject" && !note) {
+        return res.status(400).json({ success: false, error: "Tell the supplier why the change is rejected." });
+      }
+
+      const row = await KYCServices.actKycChange({ kyc_modified_sno, ecno, action, note: note || undefined });
+      if (row.status === "A") await invalidateCache(req.redisClient, "kyc:list", "kyc:pending");
+      req.io?.to("kyc:approval").emit("kyc:approval:updated", { kyc_modified_sno, action, approved_by: ecno });
+
+      const message =
+        row.status === "A" ? "Approved - the change is now live on the supplier's KYC"
+        : row.status === "R" ? "Rejected - the supplier has been told"
+        : `Approved - now waiting for the next approver (stage ${row.stage_no} of ${row.stage_total})`;
+      res.json({ success: true, data: row, message });
+
+      // Best-effort alerts - never affect the response above.
+      const who = `${row.company_name}${row.supp_code ? ` (${row.supp_code})` : ""}`;
+      if (row.status === "P" && row.next_approver_ecno) {
+        createInAppNotification({
+          ecno: String(row.next_approver_ecno).trim(),
+          type: "info",
+          title: "Supplier KYC change to approve",
+          message: `${who}: request ${row.version_no} is waiting at stage ${row.stage_no} of ${row.stage_total}${row.next_stage_name ? ` (${row.next_stage_name})` : ""}. Open KYC Approval to review it.`,
+          data: { kind: "supplier_kyc_change_pending", kyc_modified_sno, version_no: row.version_no, screen: "KYCApprovalScreen" },
+        }).catch(() => {});
+      } else if (row.status === "A") {
+        notifySupplier({
+          supplier_sno: row.kyc_basic_info_sno,
+          type: "success",
+          title: "Your KYC change was approved",
+          message: `Your request ${row.version_no} to change your KYC details has been approved and is now live.`,
+          data: { view: "kyc", kyc_modified_sno, status: "A" },
+        }).catch(() => {});
+      } else if (row.status === "R") {
+        notifySupplier({
+          supplier_sno: row.kyc_basic_info_sno,
+          type: "warning",
+          title: "Your KYC change was rejected",
+          message: `Your request ${row.version_no} to change your KYC details was rejected: ${row.decision_note ?? note}. Your KYC is unchanged - you can make the change again.`,
+          data: { view: "kyc", kyc_modified_sno, status: "R" },
+        }).catch(() => {});
+      }
+    } catch (error) {
+      res.status(error.userFacing ? 400 : 500).json({ success: false, error: error.message });
     }
   }
 

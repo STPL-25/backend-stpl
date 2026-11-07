@@ -4,6 +4,7 @@ import { ftpUploader, upload } from "../../Utils/ImagesUpload/ImgUpload.js";
 import KYCControllers from "../controllers/Kyc.controller.js";
 import { cacheMiddleware } from "../../Middleware/redisCache.js";
 import VerifyController from "../../KycVerification/KycVerification.controller.js";
+import KycResubmitController from "../../KycResubmit/KycResubmit.controller.js";
 
 const Kycrouter = express.Router();
 
@@ -19,6 +20,13 @@ Kycrouter.get('/supplier_details/:source/:id', KYCControllers.getSupplierFullDet
 
 Kycrouter.get('/get_pending_approvals',  KYCControllers.getPendingApprovals)
 Kycrouter.post('/approve_kyc', KYCControllers.approveKyc)
+// Rejected KYC: send the supplier a new private correction link / see the state of the last one (sql/155). Not cached.
+Kycrouter.post('/resubmit/send', KycResubmitController.send)
+Kycrouter.get('/resubmit/status/:kycId', KycResubmitController.status)
+// A supplier's change to its own KYC (made on the /Supplier portal) waits here for the approval stages (grn sql/93).
+// Not cached: a decision just taken must show at once.
+Kycrouter.get('/change_requests', KYCControllers.getKycChangeRequests)
+Kycrouter.post('/change_requests/act', KYCControllers.actKycChangeRequest)
 
 Kycrouter.get('/fetch_vendor_datas', cacheMiddleware("kyc:vendors", 120), KYCControllers.fetchVendorDatas)
 // GST / PAN / Udyam / bank lookups go through Cashfree (replaces the old SOAP GST service).

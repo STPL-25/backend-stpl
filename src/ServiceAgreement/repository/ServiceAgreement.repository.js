@@ -41,6 +41,12 @@ class ServiceAgreementRepository {
     return this.executeJsonProcedure("sp_nt_GetServiceAgreements", filters);
   }
 
+  // sql/157: the Statutory Payments block of each Statutory agreement (tab, Fixed/Unfixed, payee, reference).
+  async getStatutoryDues() {
+    const result = await mssqlPool.request().execute("sp_nt_GetServiceAgreementStatutoryDues");
+    return result.recordset;
+  }
+
   // One agreement's whole life (versions, approval trail, cycles + POs) —
   // a single row of three JSON columns, parsed by the service layer.
   async getServiceAgreementHistory(agreement_sno) {
@@ -178,6 +184,21 @@ class ServiceAgreementRepository {
       request.input("po_basic_sno", mssql.Int, po_basic_sno);
       const result = await request.execute("sp_nt_GetServicePoDispatchInfo");
       return result.recordset?.[0] ?? null;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
+  // The PO's supplier (kyc_basic_info_sno) - sp_nt_GetServicePoDispatchInfo does not return it, and the
+  // supplier-portal bell is addressed by it. A plain lookup keeps that live procedure untouched.
+  async getPoVendorSno(po_basic_sno) {
+    try {
+      const request = mssqlPool.request();
+      request.input("po_basic_sno", mssql.Int, po_basic_sno);
+      const result = await request.query(
+        "SELECT vendor_sno FROM dbo.po_request_info WHERE po_basic_sno = @po_basic_sno"
+      );
+      return result.recordset?.[0]?.vendor_sno ?? null;
     } catch (error) {
       throw new Error(`Database error: ${error.message}`);
     }

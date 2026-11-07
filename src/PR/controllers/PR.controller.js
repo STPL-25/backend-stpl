@@ -74,6 +74,19 @@ class PRController {
     }
   }
 
+  // GET /getWorkflowDepartments?variant=NORMAL|VENDOR_DRIVEN — the org scopes a requisition of that kind
+  // can be raised for (they have an approval workflow). The PR forms use it to leave out departments
+  // that have none, instead of letting the user pick one and fail on submit.
+  static async getWorkflowDepartments(req, res) {
+    try {
+      const variant = String(req.query.variant ?? "").toUpperCase() === "VENDOR_DRIVEN" ? "VENDOR_DRIVEN" : "NORMAL";
+      const data = await PRService.getWorkflowDepartments(variant);
+      res.json({ success: true, data });
+    } catch (error) {
+      res.status(500).json({ success: false, error: error.message });
+    }
+  }
+
   static async getPrRecords(req, res) {
     try {
       const ecno = req.user_ecno; // Use the authenticated user's ecno from JWT payload

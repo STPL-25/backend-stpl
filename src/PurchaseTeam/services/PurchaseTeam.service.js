@@ -1,5 +1,5 @@
 import PurchaseTeamRepository from "../repository/PurchaseTeam.repository.js";
-import { sendPOGeneratedEmail } from "../../Utils/Notify/notifyClient.js";
+import { sendPOGeneratedEmail, notifySupplier } from "../../Utils/Notify/notifyClient.js";
 import { ftpUploader } from "../../Utils/ImagesUpload/ImgUpload.js";
 import { nanoid } from "nanoid";
 
@@ -7,6 +7,14 @@ const SUPPLIER_PORTAL_URL =
   process.env.SUPPLIER_PORTAL_URL || "http://localhost:5173/supplier";
 
 const PO_PDF_SUBDIRECTORY = "NON_TRADE_DATAS/PO_DATAS";
+
+// "2026-11-14" -> "14 Nov 2026"; anything unparseable is shown as given rather than as "Invalid Date".
+function formatDate(value) {
+  const d = new Date(value);
+  return Number.isNaN(d.getTime())
+    ? String(value)
+    : d.toLocaleDateString("en-GB", { day: "2-digit", month: "short", year: "numeric" });
+}
 
 class PurchaseTeamService {
   static repo = new PurchaseTeamRepository();
@@ -75,6 +83,16 @@ class PurchaseTeamService {
       // Storage failure must not block the email that follows.
       console.error("PO PDF storage failed:", error.message);
     }
+
+    // Bell inside the supplier portal - independent of the e-mail below (no address on file, or a bounce,
+    // must not hide the PO from a supplier who logs in). Fire-and-forget; also fires on a re-send.
+    notifySupplier({
+      supplier_sno: vendor_sno,
+      type: "success",
+      title: "New purchase order",
+      message: `PO ${po_no} has been issued to you${required_date ? `, required by ${formatDate(required_date)}` : ""}. Open Purchase Orders to review and accept it.`,
+      data: { kind: "po", view: "workspace", po_basic_sno: po_basic_sno ?? undefined, po_no },
+    }).catch(() => {});
 
     try {
       const contact = await this.repo.getVendorContact(vendor_sno);

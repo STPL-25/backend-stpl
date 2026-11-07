@@ -66,6 +66,42 @@ class PRRepository {
     }
   }
 
+  // Which organisation scopes (company / division / branch / department) have an approval workflow a
+  // requisition can be raised against. Mirrors the lookup in usp_InsertPurchaseRequest and
+  // usp_InsertVendorDrivenPurchaseRequest: an exact com/div/brn/dept row in workflow_types, in a workflow
+  // whose entity_type is what fn_resolve_approval_entity gives for the request variant (the Approval
+  // Routing screen can re-point it). Read-only. Only active rows of active workflows count — a department
+  // whose workflow was removed on the Approval Workflows screen has no workflow here, even though a retired
+  // row would still be found by the insert procedure.
+  // `variant`: 'NORMAL' (regular requisition) or 'VENDOR_DRIVEN'.
+  async getWorkflowDepartments(variant) {
+    try {
+      const request = mssqlPool.request();
+      request.input("variant", mssql.VarChar(30), variant);
+      const result = await request.query(`
+        -- Without the routing function (sql/124 not applied) the procedures use these literals.
+        DECLARE @entity VARCHAR(50) =
+            CASE WHEN @variant = 'VENDOR_DRIVEN' THEN 'VendorDrivenPurchaseRequisition' ELSE 'PurchaseRequisition' END;
+        IF OBJECT_ID('dbo.fn_resolve_approval_entity') IS NOT NULL
+            EXEC sp_executesql
+                N'SELECT @e = dbo.fn_resolve_approval_entity(''PurchaseRequisition'', @v)',
+                N'@v VARCHAR(50), @e VARCHAR(50) OUTPUT',
+                @v = @variant, @e = @entity OUTPUT;
+
+        SELECT DISTINCT wt.com_sno, wt.div_sno, wt.brn_sno, wt.dept_sno
+        FROM dbo.workflow_types wt
+        INNER JOIN dbo.approval_workflow_master awm ON awm.workflow_id = wt.workflow_id
+        WHERE awm.entity_type = @entity
+          AND awm.is_active = 'Y'
+          AND wt.is_active = 'Y'
+          AND wt.dept_sno IS NOT NULL;
+      `);
+      return result.recordset;
+    } catch (error) {
+      throw new Error(`Database error: ${error.message}`);
+    }
+  }
+
   async getPrRecords(ecno, hierarchyJson) {
     try {
       const request = mssqlPool.request();

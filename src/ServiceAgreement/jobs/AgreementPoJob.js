@@ -75,11 +75,16 @@ async function runAgreementNotificationSweep() {
 
   for (const row of due) {
     try {
+      const when = new Date(row.due_date).toLocaleDateString("en-IN");
+      // sql/157: a Statutory agreement raises no PO - its due is paid on Statutory Payments
+      const statutory = row.service_type_code === "STATUTORY";
       const result = await createInAppNotification({
         ecno: row.notify_ecno,
         type: "warning",
-        title: "Upcoming recurring PO",
-        message: `Service Agreement ${row.agreement_no} (${row.service_name}) will auto-generate its next PO on ${new Date(row.due_date).toLocaleDateString("en-IN")}.`,
+        title: statutory ? "Statutory due coming up" : "Upcoming recurring PO",
+        message: statutory
+          ? `${row.service_name} (${row.agreement_no}) is due on ${when}. It is now on Statutory Payments${row.statutory_amount_type === "UNFIXED" ? " - enter the amount there, then pay it" : " - pay it there"}.`
+          : `Service Agreement ${row.agreement_no} (${row.service_name}) will auto-generate its next PO on ${when}.`,
         data: { agreement_sno: row.agreement_sno, due_date: row.due_date },
       });
 

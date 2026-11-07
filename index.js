@@ -22,6 +22,7 @@ import verifyJWT from "./src/AuthMiddleware/JwtAuth.js";
 import { getHierarchyJson, orgRoomsForHierarchy } from "./src/Middleware/hierarchyScope.js";
 import { paymentSocketRooms } from "./src/Middleware/paymentSocketAccess.js";
 import UserApprovalrouter from "./src/UserApproval/routes/UserApproval.routes.js";
+import OrgDashboardRouter from "./src/OrgDashboard/routes/OrgDashboard.routes.js";
 import Kycrouter from "./src/Kyc/routes/Kyc.routes.js";
 import ServiceAgreementRouter from "./src/ServiceAgreement/routes/ServiceAgreement.routes.js";
 import SpecialAgreementRouter from "./src/SpecialAgreement/routes/SpecialAgreement.routes.js";
@@ -482,6 +483,7 @@ app.use("/api/secure",   signUpRouter);
 // Protected API routes — require valid JWT + general rate limit + payload encryption
 app.use("/api/common_master",      verifyJWT,   commonMasterRouter);
 app.use("/api/user_approval",      verifyJWT,    UserApprovalrouter);
+app.use("/api/org_dashboard",      verifyJWT,    OrgDashboardRouter);
 app.use("/api/common_basic_details",     commonBasicDetailsRouter);
 app.use("/api/budget",            verifyJWT,      BudgetRouter);
 app.use("/api/kyc",                verifyJWT,    Kycrouter);

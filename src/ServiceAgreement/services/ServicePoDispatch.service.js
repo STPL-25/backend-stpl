@@ -9,7 +9,7 @@
 // Called from both PO-issuance paths: inline at an agreement's final
 // approval (ServiceAgreement.controller.js) and from the hourly recurring
 // sweep (ServiceAgreement/jobs/AgreementPoJob.js).
-import { sendPOGeneratedEmail, createInAppNotification } from "../../Utils/Notify/notifyClient.js";
+import { sendPOGeneratedEmail, createInAppNotification, notifySupplier } from "../../Utils/Notify/notifyClient.js";
 import ServiceAgreementRepository from "../repository/ServiceAgreement.repository.js";
 
 const SUPPLIER_PORTAL_URL = process.env.SUPPLIER_PORTAL_URL || "http://localhost:5173/supplier";
@@ -62,6 +62,25 @@ async function dispatchServicePo(po_basic_sno) {
     }
 
     // Supplier path (default / dispatch_type === 'S')
+
+    // Bell inside the supplier portal, regardless of whether an e-mail address is on file.
+    // Best-effort: a lookup/notify failure must not stop the e-mail or the audit row below.
+    try {
+      const supplier_sno = await repo.getPoVendorSno(po_basic_sno);
+      const result = await notifySupplier({
+        supplier_sno,
+        type: "success",
+        title: "New purchase order",
+        message: `PO ${info.po_no} for ${info.service_name} has been issued to you. Open Purchase Orders to review and accept it.`,
+        data: { kind: "po", view: "workspace", po_basic_sno, po_no: info.po_no },
+      });
+      if (!result.sent) {
+        console.error(`Service PO dispatch: portal bell to supplier failed for PO ${info.po_no}: ${result.reason}`);
+      }
+    } catch (error) {
+      console.error(`Service PO dispatch: portal bell lookup failed for PO ${info.po_no}:`, error.message);
+    }
+
     if (info.vendor_email) {
       const totalAmount = (Number(info.rate_amount) * Number(info.qty)).toFixed(2);
       const mailResult = await sendPOGeneratedEmail({

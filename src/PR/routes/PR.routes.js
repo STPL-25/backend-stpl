@@ -9,6 +9,7 @@ const PRrouter = express.Router();
 // Existing routes
 PRrouter.post("/createPrRecords", upload.any(), PRController.createPrRecords);
 PRrouter.get("/getPrRecords", attachHierarchyScope, PRController.getPrRecords);
+PRrouter.get("/getWorkflowDepartments", PRController.getWorkflowDepartments);
 PRrouter.post("/approvePr", PRController.approvePr);
 PRrouter.get("/getApprovalContext", PRController.getApprovalContext);
 

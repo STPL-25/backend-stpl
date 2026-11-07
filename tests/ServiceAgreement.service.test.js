@@ -64,3 +64,44 @@ describe("ServiceAgreementService — Fixed vs Variable Recurring payload shapes
     expect(spy).toHaveBeenCalledWith(scope);
   });
 });
+
+// sql/157: a Statutory agreement's Statutory Payments block (tab, Fixed/Unfixed, payee) is merged into the list rows.
+describe("ServiceAgreementService — Statutory due block", () => {
+  beforeEach(() => {
+    jest.restoreAllMocks();
+  });
+
+  const rows = [
+    { agreement_sno: 1, service_type_code: "FIXED_RECURRING", vendors_json: "[]" },
+    { agreement_sno: 2, service_type_code: "STATUTORY", vendors_json: null },
+  ];
+
+  it("adds statutory_due to the Statutory rows only", async () => {
+    jest.spyOn(ServiceAgreementService.repo, "getServiceAgreements").mockResolvedValue(rows);
+    jest.spyOn(ServiceAgreementService.repo, "getSignedDocs").mockResolvedValue([]);
+    jest.spyOn(ServiceAgreementService.repo, "getStatutoryDues").mockResolvedValue([
+      { agreement_sno: 2, kind: "OTHER", amount_type: "UNFIXED", payee_sno: 4, payee_name: "EPFO", waiting_count: 1 },
+    ]);
+    const out = await ServiceAgreementService.getServiceAgreements({});
+    expect(out[0].statutory_due).toBeUndefined();
+    expect(out[1].statutory_due).toEqual({ kind: "OTHER", amount_type: "UNFIXED", payee_sno: 4, payee_name: "EPFO", waiting_count: 1 });
+  });
+
+  it("does not ask for the block when there is no Statutory row", async () => {
+    jest.spyOn(ServiceAgreementService.repo, "getServiceAgreements").mockResolvedValue([rows[0]]);
+    jest.spyOn(ServiceAgreementService.repo, "getSignedDocs").mockResolvedValue([]);
+    const dues = jest.spyOn(ServiceAgreementService.repo, "getStatutoryDues").mockResolvedValue([]);
+    await ServiceAgreementService.getServiceAgreements({});
+    expect(dues).not.toHaveBeenCalled();
+  });
+
+  it("still lists the agreements when the block cannot be read (sql/157 not applied yet)", async () => {
+    jest.spyOn(ServiceAgreementService.repo, "getServiceAgreements").mockResolvedValue(rows);
+    jest.spyOn(ServiceAgreementService.repo, "getSignedDocs").mockResolvedValue([]);
+    jest.spyOn(ServiceAgreementService.repo, "getStatutoryDues").mockRejectedValue(new Error("Could not find stored procedure"));
+    jest.spyOn(console, "error").mockImplementation(() => {});
+    const out = await ServiceAgreementService.getServiceAgreements({});
+    expect(out).toHaveLength(2);
+    expect(out[1].statutory_due).toBeUndefined();
+  });
+});
